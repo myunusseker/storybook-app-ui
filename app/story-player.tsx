@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, router } from 'expo-router';
 import { 
@@ -14,6 +14,8 @@ import {
   Moon,
   Star
 } from 'lucide-react-native';
+import { usePlayer } from '@/contexts/PlayerContext';
+import { GestureHandlerRootView, PanGestureHandler } from 'react-native-gesture-handler';
 
 const { width, height } = Dimensions.get('window');
 
@@ -35,7 +37,7 @@ export default function StoryPlayerScreen() {
   };
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (isPlaying) {
       interval = setInterval(() => {
         setCurrentTime(prev => {
@@ -47,7 +49,9 @@ export default function StoryPlayerScreen() {
         });
       }, 1000);
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [isPlaying, duration]);
 
   const formatTime = (seconds: number) => {
@@ -68,33 +72,38 @@ export default function StoryPlayerScreen() {
   };
 
   return (
-    <LinearGradient
-      colors={isNightMode ? ['#1f2937', '#111827'] : story.color}
-      style={styles.container}
-    >
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <ArrowLeft size={24} color="#ffffff" />
-        </TouchableOpacity>
-        <View style={styles.headerActions}>
-          <TouchableOpacity 
-            style={styles.headerButton}
-            onPress={() => setIsNightMode(!isNightMode)}
-          >
-            <Moon size={20} color="#ffffff" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton}>
-            <Share size={20} color="#ffffff" />
-          </TouchableOpacity>
-        </View>
-      </View>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={isNightMode ? ['#1f2937', '#111827'] : story.color}
+        style={styles.card}
+      >
+        <View style={styles.cardHandle} />
+        <View style={styles.header}>
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <ArrowLeft size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              <TouchableOpacity 
+                style={styles.headerButton}
+                onPress={() => setIsNightMode(!isNightMode)}
+              >
+                <Moon size={20} color="#ffffff" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.headerButton}>
+                <Share size={20} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+          </View>
 
       <View style={styles.coverContainer}>
         <View style={styles.coverWrapper}>
-          <Image source={{ uri: story.cover }} style={styles.coverImage} />
+          <Image 
+            source={{ uri: typeof story.cover === 'string' ? story.cover : story.cover?.[0] || '' }} 
+            style={styles.coverImage} 
+          />
           <LinearGradient 
             colors={['transparent', 'rgba(0,0,0,0.8)']}
             style={styles.coverOverlay}
@@ -176,20 +185,36 @@ export default function StoryPlayerScreen() {
           </View>
         </View>
       </View>
-    </LinearGradient>
+      </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'transparent',
+  },
+  card: {
+    flex: 1,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  cardHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 10,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: 20,
     paddingBottom: 20,
   },
   backButton: {
@@ -217,10 +242,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
+    paddingVertical: 20,
   },
   coverWrapper: {
-    width: width * 0.7,
-    height: width * 0.7,
+    width: width * 0.6,
+    height: width * 0.6,
     borderRadius: 20,
     overflow: 'hidden',
     elevation: 20,

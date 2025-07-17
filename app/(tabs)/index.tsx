@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions
 import { LinearGradient } from 'expo-linear-gradient';
 import { Play, Heart, Clock, Star, Search, Filter } from 'lucide-react-native';
 import { router } from 'expo-router';
+import { usePlayer } from '@/contexts/PlayerContext';
 
 const { width } = Dimensions.get('window');
 
@@ -56,9 +57,10 @@ const stories = [
 ];
 
 export default function HomeScreen() {
-  const [favorites, setFavorites] = useState<number[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [favorites, setFavorites] = useState<number[]>([2, 4, 6]);
+  const { openPlayer } = usePlayer();
 
   const toggleFavorite = (id: number) => {
     setFavorites(prev => 
@@ -69,6 +71,16 @@ export default function HomeScreen() {
   };
 
   const handlePlayStory = (story: any) => {
+    const storyData = {
+      id: story.id.toString(),
+      title: story.title,
+      description: story.description,
+      duration: story.duration,
+      cover: story.cover,
+      color: story.color,
+    };
+    
+    openPlayer(storyData);
     router.push({
       pathname: '/story-player',
       params: { 
@@ -155,7 +167,7 @@ export default function HomeScreen() {
             onPress={() => handlePlayStory(featuredStory)}
           >
             <LinearGradient
-              colors={featuredStory.color}
+              colors={featuredStory.color as any}
               style={styles.featuredGradient}
             >
               <View style={styles.featuredContent}>

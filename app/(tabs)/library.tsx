@@ -89,96 +89,98 @@ export default function LibraryScreen() {
       colors={['#fdf2f8', '#f8fafc']}
       style={styles.container}
     >
-      <View style={styles.header}>
-        <Text style={styles.title}>Story Library</Text>
-        <Text style={styles.subtitle}>Your personal collection</Text>
-      </View>
-
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Search size={20} color="#9ca3af" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search stories..."
-            placeholderTextColor="#9ca3af"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Story Library</Text>
+          <Text style={styles.subtitle}>Your personal collection</Text>
         </View>
-        <TouchableOpacity style={styles.filterButton}>
-          <Filter size={20} color="#8b5cf6" />
-        </TouchableOpacity>
-      </View>
 
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoriesContainer}
-      >
-        {categories.map((category) => (
-          <TouchableOpacity
-            key={category}
-            style={[
-              styles.categoryButton,
-              selectedCategory === category && styles.categoryButtonActive
-            ]}
-            onPress={() => setSelectedCategory(category)}
-          >
-            <Text
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <Search size={20} color="#9ca3af" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search stories..."
+              placeholderTextColor="#9ca3af"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+          <TouchableOpacity style={styles.filterButton}>
+            <Filter size={20} color="#8b5cf6" />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoriesContainer}
+        >
+          {categories.map((category) => (
+            <TouchableOpacity
+              key={category}
               style={[
-                styles.categoryText,
-                selectedCategory === category && styles.categoryTextActive
+                styles.categoryButton,
+                selectedCategory === category && styles.categoryButtonActive
               ]}
+              onPress={() => setSelectedCategory(category)}
             >
-              {category}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+              <Text
+                style={[
+                  styles.categoryText,
+                  selectedCategory === category && styles.categoryTextActive
+                ]}
+              >
+                {category}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={styles.storiesList}>
-        {filteredStories.map((story) => (
-          <TouchableOpacity key={story.id} style={styles.storyItem}>
-            <View style={styles.storyItemContent}>
-              <View style={styles.storyItemLeft}>
-                <View style={styles.storyIcon}>
-                  <Text style={styles.storyIconText}>{story.title.charAt(0)}</Text>
-                </View>
-                <View style={styles.storyInfo}>
-                  <Text style={styles.storyTitle}>{story.title}</Text>
-                  <View style={styles.storyMeta}>
-                    <View style={styles.metaItem}>
-                      <Clock size={12} color="#94a3b8" />
-                      <Text style={styles.metaText}>{story.duration}</Text>
-                    </View>
-                    <View style={styles.metaItem}>
-                      <Star size={12} color="#fbbf24" />
-                      <Text style={styles.metaText}>{story.rating}</Text>
+        <View style={styles.storiesList}>
+          {filteredStories.map((story) => (
+            <TouchableOpacity key={story.id} style={styles.storyItem}>
+              <View style={styles.storyItemContent}>
+                <View style={styles.storyItemLeft}>
+                  <View style={styles.storyIcon}>
+                    <Text style={styles.storyIconText}>{story.title.charAt(0)}</Text>
+                  </View>
+                  <View style={styles.storyInfo}>
+                    <Text style={styles.storyTitle}>{story.title}</Text>
+                    <View style={styles.storyMeta}>
+                      <View style={styles.metaItem}>
+                        <Clock size={12} color="#94a3b8" />
+                        <Text style={styles.metaText}>{story.duration}</Text>
+                      </View>
+                      <View style={styles.metaItem}>
+                        <Star size={12} color="#fbbf24" />
+                        <Text style={styles.metaText}>{story.rating}</Text>
+                      </View>
                     </View>
                   </View>
                 </View>
+                <View style={styles.storyItemRight}>
+                  {story.isNew && (
+                    <View style={styles.newBadgeSmall}>
+                      <Text style={styles.newBadgeTextSmall}>New</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={styles.favoriteButtonSmall}
+                    onPress={() => toggleFavorite(story.id)}
+                  >
+                    <Heart
+                      size={16}
+                      color={favorites.includes(story.id) ? "#ef4444" : "#94a3b8"}
+                      fill={favorites.includes(story.id) ? "#ef4444" : "transparent"}
+                    />
+                  </TouchableOpacity>
+                </View>
               </View>
-              <View style={styles.storyItemRight}>
-                {story.isNew && (
-                  <View style={styles.newBadgeSmall}>
-                    <Text style={styles.newBadgeTextSmall}>New</Text>
-                  </View>
-                )}
-                <TouchableOpacity
-                  style={styles.favoriteButtonSmall}
-                  onPress={() => toggleFavorite(story.id)}
-                >
-                  <Heart
-                    size={16}
-                    color={favorites.includes(story.id) ? "#ef4444" : "#94a3b8"}
-                    fill={favorites.includes(story.id) ? "#ef4444" : "transparent"}
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </TouchableOpacity>
-        ))}
-        <View style={styles.bottomSpacing} />
+            </TouchableOpacity>
+          ))}
+          <View style={styles.bottomSpacing} />
+        </View>
       </ScrollView>
     </LinearGradient>
   );
@@ -269,8 +271,8 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   storiesList: {
-    flex: 1,
     paddingHorizontal: 20,
+    paddingBottom: 100,
   },
   storyItem: {
     backgroundColor: '#ffffff',
