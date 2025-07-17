@@ -1,0 +1,456 @@
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { User, Mail, Calendar, Mic, CreditCard as Edit, Settings, VolumeX, Volume2, RefreshCw, Trash2, Camera } from 'lucide-react-native';
+import { router } from 'expo-router';
+
+export default function ProfileScreen() {
+  const [hasVoiceSetup, setHasVoiceSetup] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+
+  const handleVoiceSetup = () => {
+    router.push('/voice-setup');
+  };
+
+  const handleRecalibrateVoice = () => {
+    Alert.alert(
+      'Recalibrate Voice',
+      'This will update your AI voice model. You\'ll need to record new voice samples.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Continue', onPress: handleVoiceSetup }
+      ]
+    );
+  };
+
+  const handleDeleteVoice = () => {
+    Alert.alert(
+      'Delete Voice',
+      'Are you sure you want to delete your AI voice? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: () => {
+            setHasVoiceSetup(false);
+            Alert.alert('Voice Deleted', 'Your AI voice has been removed.');
+          }
+        }
+      ]
+    );
+  };
+
+  const handleEditProfile = () => {
+    router.push('/edit-profile');
+  };
+
+  return (
+    <LinearGradient
+      colors={['#fdf2f8', '#f8fafc']}
+      style={styles.container}
+    >
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <View style={styles.profileImageContainer}>
+            <Image
+              source={{ uri: 'https://images.pexels.com/photos/1239288/pexels-photo-1239288.jpeg?auto=compress&cs=tinysrgb&w=200' }}
+              style={styles.profileImage}
+            />
+            <TouchableOpacity style={styles.cameraButton}>
+              <Camera size={16} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.userName}>Sarah Johnson</Text>
+          <Text style={styles.userEmail}>sarah.johnson@email.com</Text>
+          <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
+            <Edit size={16} color="#8b5cf6" />
+            <Text style={styles.editButtonText}>Edit Profile</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>24</Text>
+            <Text style={styles.statLabel}>Stories</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>12</Text>
+            <Text style={styles.statLabel}>Favorites</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>48h</Text>
+            <Text style={styles.statLabel}>Listened</Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Your Information</Text>
+          <View style={styles.infoCard}>
+            <View style={styles.infoItem}>
+              <User size={20} color="#8b5cf6" />
+              <Text style={styles.infoLabel}>Full Name</Text>
+              <Text style={styles.infoValue}>Sarah Johnson</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Mail size={20} color="#8b5cf6" />
+              <Text style={styles.infoLabel}>Email</Text>
+              <Text style={styles.infoValue}>sarah.johnson@email.com</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Calendar size={20} color="#8b5cf6" />
+              <Text style={styles.infoLabel}>Member Since</Text>
+              <Text style={styles.infoValue}>December 2024</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>AI Voice</Text>
+          {!hasVoiceSetup ? (
+            <TouchableOpacity style={styles.voiceSetupCard} onPress={handleVoiceSetup}>
+              <LinearGradient
+                colors={['#8b5cf6', '#7c3aed']}
+                style={styles.voiceSetupGradient}
+              >
+                <View style={styles.voiceSetupContent}>
+                  <View style={styles.voiceSetupIcon}>
+                    <Mic size={24} color="#ffffff" />
+                  </View>
+                  <View style={styles.voiceSetupText}>
+                    <Text style={styles.voiceSetupTitle}>Set Up Your Voice</Text>
+                    <Text style={styles.voiceSetupDescription}>
+                      Record your voice to create personalized AI narrations
+                    </Text>
+                  </View>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.voiceCard}>
+              <View style={styles.voiceStatus}>
+                <View style={styles.voiceStatusIcon}>
+                  <Mic size={20} color="#10b981" />
+                </View>
+                <View style={styles.voiceStatusText}>
+                  <Text style={styles.voiceStatusTitle}>Voice Ready</Text>
+                  <Text style={styles.voiceStatusDescription}>
+                    Your AI voice is set up and ready to use
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.voiceToggle}
+                  onPress={() => setIsVoiceEnabled(!isVoiceEnabled)}
+                >
+                  {isVoiceEnabled ? (
+                    <Volume2 size={20} color="#10b981" />
+                  ) : (
+                    <VolumeX size={20} color="#ef4444" />
+                  )}
+                </TouchableOpacity>
+              </View>
+              <View style={styles.voiceActions}>
+                <TouchableOpacity
+                  style={styles.voiceActionButton}
+                  onPress={handleRecalibrateVoice}
+                >
+                  <RefreshCw size={16} color="#8b5cf6" />
+                  <Text style={styles.voiceActionText}>Recalibrate</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.voiceActionButton, styles.deleteButton]}
+                  onPress={handleDeleteVoice}
+                >
+                  <Trash2 size={16} color="#ef4444" />
+                  <Text style={[styles.voiceActionText, styles.deleteButtonText]}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Settings</Text>
+          <View style={styles.settingsCard}>
+            <TouchableOpacity style={styles.settingsItem}>
+              <Settings size={20} color="#8b5cf6" />
+              <Text style={styles.settingsLabel}>App Settings</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
+    </LinearGradient>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+  },
+  profileImageContainer: {
+    position: 'relative',
+    marginBottom: 15,
+  },
+  profileImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 4,
+    borderColor: '#ffffff',
+  },
+  cameraButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#8b5cf6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#ffffff',
+  },
+  userName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 5,
+  },
+  userEmail: {
+    fontSize: 16,
+    color: '#6b7280',
+    marginBottom: 15,
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  editButtonText: {
+    fontSize: 14,
+    color: '#8b5cf6',
+    fontWeight: '600',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#ffffff',
+    marginHorizontal: 20,
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 30,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 5,
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: '#e5e7eb',
+    marginHorizontal: 20,
+  },
+  section: {
+    paddingHorizontal: 20,
+    marginBottom: 25,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 15,
+  },
+  infoCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 15,
+    padding: 20,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginLeft: 15,
+    flex: 1,
+  },
+  infoValue: {
+    fontSize: 14,
+    color: '#1f2937',
+    fontWeight: '500',
+  },
+  voiceSetupCard: {
+    borderRadius: 15,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  voiceSetupGradient: {
+    padding: 20,
+  },
+  voiceSetupContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  voiceSetupIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  voiceSetupText: {
+    flex: 1,
+  },
+  voiceSetupTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginBottom: 5,
+  },
+  voiceSetupDescription: {
+    fontSize: 14,
+    color: '#ffffff',
+    opacity: 0.9,
+  },
+  voiceCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 15,
+    padding: 20,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  voiceStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  voiceStatusIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#dcfce7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  voiceStatusText: {
+    flex: 1,
+  },
+  voiceStatusTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 3,
+  },
+  voiceStatusDescription: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  voiceToggle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f8fafc',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  voiceActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  voiceActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  voiceActionText: {
+    fontSize: 14,
+    color: '#8b5cf6',
+    fontWeight: '600',
+  },
+  deleteButton: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
+  },
+  deleteButtonText: {
+    color: '#ef4444',
+  },
+  settingsCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 15,
+    padding: 20,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  settingsItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 15,
+  },
+  settingsLabel: {
+    fontSize: 16,
+    color: '#1f2937',
+    fontWeight: '500',
+  },
+  bottomSpacing: {
+    height: 100,
+  },
+});
