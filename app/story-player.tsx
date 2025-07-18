@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Animated } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { 
   Play, 
   Pause, 
@@ -15,9 +15,8 @@ import {
   Star
 } from 'lucide-react-native';
 import { usePlayer } from '@/contexts/PlayerContext';
-import { GestureHandlerRootView, PanGestureHandler } from 'react-native-gesture-handler';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 export default function StoryPlayerScreen() {
   const params = useLocalSearchParams();
@@ -26,6 +25,22 @@ export default function StoryPlayerScreen() {
   const [duration] = useState(480); // 8 minutes in seconds
   const [isFavorite, setIsFavorite] = useState(false);
   const [isNightMode, setIsNightMode] = useState(false);
+  const { minimizePlayer } = usePlayer();
+
+  // Auto-minimize when screen loses focus
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => {
+        // This cleanup function runs when the screen loses focus
+        minimizePlayer();
+      };
+    }, [minimizePlayer])
+  );
+
+  const handleMinimize = () => {
+    minimizePlayer();
+    router.back();
+  };
 
   const story = {
     id: params.id,
@@ -72,31 +87,31 @@ export default function StoryPlayerScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={isNightMode ? ['#1f2937', '#111827'] : story.color}
-        style={styles.card}
-      >
-        <View style={styles.cardHandle} />
-        <View style={styles.header}>
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={() => router.back()}
-            >
-              <ArrowLeft size={24} color="#ffffff" />
-            </TouchableOpacity>
-            <View style={styles.headerActions}>
-              <TouchableOpacity 
-                style={styles.headerButton}
-                onPress={() => setIsNightMode(!isNightMode)}
-              >
-                <Moon size={20} color="#ffffff" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.headerButton}>
-                <Share size={20} color="#ffffff" />
-              </TouchableOpacity>
-            </View>
-          </View>
+    <LinearGradient
+      colors={isNightMode ? ['#1f2937', '#111827'] : story.color}
+      style={styles.card}
+    >
+      <View style={styles.cardHandle} />
+      
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={handleMinimize}
+        >
+          <ArrowLeft size={24} color="#ffffff" />
+        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity 
+            style={styles.headerButton}
+            onPress={() => setIsNightMode(!isNightMode)}
+          >
+            <Moon size={20} color="#ffffff" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerButton}>
+            <Share size={20} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
+      </View>
 
       <View style={styles.coverContainer}>
         <View style={styles.coverWrapper}>
@@ -185,20 +200,13 @@ export default function StoryPlayerScreen() {
           </View>
         </View>
       </View>
-      </LinearGradient>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
   card: {
     flex: 1,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
   },
   cardHandle: {
     width: 40,
@@ -245,8 +253,8 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
   coverWrapper: {
-    width: width * 0.6,
-    height: width * 0.6,
+    width: width * 0.8,
+    height: width * 0.8,
     borderRadius: 20,
     overflow: 'hidden',
     elevation: 20,
@@ -335,7 +343,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -343,7 +351,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
   },
