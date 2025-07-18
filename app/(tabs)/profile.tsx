@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Switch } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { User, Mail, Calendar, Mic, CreditCard as Edit, VolumeX, Volume2, RefreshCw, Trash2, Camera, Bell, Moon, Download, Database, Shield, CircleHelp as HelpCircle, MessageCircle, Star, LogOut, ChevronRight } from 'lucide-react-native';
+import { User, Mail, Calendar, Mic, Pencil as Edit, VolumeX, Volume2, RefreshCw, Trash2, Camera, Bell, Moon, Download, Database, Shield, CircleHelp as HelpCircle, MessageCircle, Star, LogOut, ChevronRight } from 'lucide-react-native';
 import { router } from 'expo-router';
 
 export default function ProfileScreen() {
@@ -11,6 +11,29 @@ export default function ProfileScreen() {
   const [autoPlay, setAutoPlay] = useState(false);
   const [nightMode, setNightMode] = useState(false);
   const [downloadOverWifi, setDownloadOverWifi] = useState(true);
+  
+  // Edit mode state
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState('Sarah Johnson');
+  const [editedEmail, setEditedEmail] = useState('sarah.johnson@email.com');
+  const [nameWidth, setNameWidth] = useState(0);
+  const nameTextRef = useRef<Text>(null);
+  const nameInputRef = useRef<TextInput>(null);
+
+  // Force re-measurement when text changes
+  useEffect(() => {
+    // Small delay to ensure the layout has updated
+    const timer = setTimeout(() => {
+      const currentRef = isEditingName ? nameInputRef.current : nameTextRef.current;
+      if (currentRef && currentRef.measure) {
+        currentRef.measure((x: number, y: number, width: number, height: number) => {
+          setNameWidth(width);
+        });
+      }
+    }, 10);
+    
+    return () => clearTimeout(timer);
+  }, [editedName, isEditingName]);
 
   const handleVoiceSetup = () => {
     router.push('/voice-setup');
@@ -45,8 +68,20 @@ export default function ProfileScreen() {
     );
   };
 
-  const handleEditProfile = () => {
-    router.push('/edit-profile');
+  const handleEditName = () => {
+    if (isEditingName) {
+      // Save the name
+      setIsEditingName(false);
+    } else {
+      // Start editing
+      setIsEditingName(true);
+    }
+  };
+
+  const handleCancelNameEdit = () => {
+    // Reset to original value and exit edit mode
+    setEditedName('Sarah Johnson');
+    setIsEditingName(false);
   };
 
   const handleLogout = () => {
@@ -76,20 +111,93 @@ export default function ProfileScreen() {
     );
   };
 
-  const SettingsItem = ({ icon, title, subtitle, onPress, showArrow = true, rightComponent }: any) => (
-    <TouchableOpacity style={styles.settingsItem} onPress={onPress}>
-      <View style={styles.settingsItemLeft}>
-        <View style={styles.settingsIcon}>
-          {icon}
-        </View>
-        <View style={styles.settingsTextContainer}>
-          <Text style={styles.settingsTitle}>{title}</Text>
-          {subtitle && <Text style={styles.settingsSubtitle}>{subtitle}</Text>}
-        </View>
+  // Custom Toggle Component to replace React Native Switch
+  const CustomToggle = ({ 
+    value, 
+    onValueChange 
+  }: { 
+    value: boolean; 
+    onValueChange: (value: boolean) => void; 
+  }) => {
+    const toggleWidth = 51;
+    const toggleHeight = 31;
+    const thumbSize = 27;
+    const thumbMargin = 2;
+    
+    return (
+      <TouchableOpacity
+        style={[
+          styles.customToggle,
+          {
+            backgroundColor: value ? '#c4b5fd' : '#d1d5db',
+            width: toggleWidth,
+            height: toggleHeight,
+          }
+        ]}
+        onPress={() => onValueChange(!value)}
+        activeOpacity={0.8}
+      >
+        <View
+          style={[
+            styles.customToggleThumb,
+            {
+              width: thumbSize,
+              height: thumbSize,
+              backgroundColor: value ? '#8b5cf6' : '#f4f4f5',
+              transform: [{
+                translateX: value 
+                  ? toggleWidth - thumbSize - thumbMargin 
+                  : thumbMargin
+              }],
+            }
+          ]}
+        />
+      </TouchableOpacity>
+    );
+  };
+
+  const SettingsItem = ({
+    icon,
+    title,
+    subtitle,
+    onPress,
+    showArrow = true,
+    hasToggle = false,
+    toggleValue,
+    onToggleChange,
+  }: {
+    icon: React.ReactNode;
+    title: string;
+    subtitle?: string;
+    onPress?: () => void;
+    showArrow?: boolean;
+    hasToggle?: boolean;
+    toggleValue?: boolean;
+    onToggleChange?: (value: boolean) => void;
+  }) => {
+    return (
+      <View style={styles.settingsItem}>
+        <TouchableOpacity
+          style={styles.settingsItemLeft}
+          onPress={onPress}
+          activeOpacity={hasToggle ? 1 : 0.7}
+          disabled={!onPress}
+        >
+          <View style={styles.settingsIcon}>{icon}</View>
+          <View style={styles.settingsTextContainer}>
+            <Text style={styles.settingsTitle}>{title}</Text>
+            {subtitle && <Text style={styles.settingsSubtitle}>{subtitle}</Text>}
+          </View>
+        </TouchableOpacity>
+
+        {hasToggle && toggleValue !== undefined && onToggleChange ? (
+          <CustomToggle value={toggleValue} onValueChange={onToggleChange} />
+        ) : (
+          showArrow && <ChevronRight size={20} color="#94a3b8" />
+        )}
       </View>
-      {rightComponent || (showArrow && <ChevronRight size={20} color="#94a3b8" />)}
-    </TouchableOpacity>
-  );
+    );
+  };
 
   return (
     <LinearGradient
@@ -107,12 +215,48 @@ export default function ProfileScreen() {
               <Camera size={16} color="#ffffff" />
             </TouchableOpacity>
           </View>
-          <Text style={styles.userName}>Sarah Johnson</Text>
-          <Text style={styles.userEmail}>sarah.johnson@email.com</Text>
-          <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
-            <Edit size={16} color="#8b5cf6" />
-            <Text style={styles.editButtonText}>Edit Profile</Text>
-          </TouchableOpacity>
+          <View style={styles.nameContainer}>
+            {isEditingName ? (
+              <TextInput
+                ref={nameInputRef}
+                style={styles.nameInput}
+                value={editedName}
+                onChangeText={setEditedName}
+                onBlur={handleEditName}
+                onLayout={(event) => {
+                  const { width } = event.nativeEvent.layout;
+                  setNameWidth(width);
+                }}
+                autoFocus
+                placeholder="Enter your name"
+              />
+            ) : (
+              <Text 
+                ref={nameTextRef}
+                style={styles.userName}
+                onLayout={(event) => {
+                  const { width } = event.nativeEvent.layout;
+                  setNameWidth(width);
+                }}
+              >
+                {editedName}
+              </Text>
+            )}
+            <TouchableOpacity 
+              onPress={handleEditName} 
+              style={[
+                styles.editNameButton,
+                {
+                  left: `50%`,
+                  marginLeft: (nameWidth / 2) + 8, // Half the name width + 8px offset
+                  marginTop: -4
+                }
+              ]}
+            >
+              <Edit size={16} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.userEmail}>{editedEmail}</Text>
         </View>
 
         <View style={styles.statsContainer}>
@@ -133,18 +277,10 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Your Information</Text>
+          <Text style={styles.sectionTitle}>
+            Your Information
+          </Text>
           <View style={styles.infoCard}>
-            <View style={styles.infoItem}>
-              <User size={20} color="#8b5cf6" />
-              <Text style={styles.infoLabel}>Full Name</Text>
-              <Text style={styles.infoValue}>Sarah Johnson</Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Mail size={20} color="#8b5cf6" />
-              <Text style={styles.infoLabel}>Email</Text>
-              <Text style={styles.infoValue}>sarah.johnson@email.com</Text>
-            </View>
             <View style={styles.infoItem}>
               <Calendar size={20} color="#8b5cf6" />
               <Text style={styles.infoLabel}>Member Since</Text>
@@ -224,48 +360,27 @@ export default function ProfileScreen() {
               icon={<Bell size={20} color="#8b5cf6" />}
               title="Push Notifications"
               subtitle="Get notified about new stories"
-              onPress={() => setNotifications(!notifications)}
-              showArrow={false}
-              rightComponent={
-                <Switch
-                  value={notifications}
-                  onValueChange={setNotifications}
-                  thumbColor={notifications ? '#8b5cf6' : '#f4f4f5'}
-                  trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
-                />
-              }
+              hasToggle
+              toggleValue={notifications}
+              onToggleChange={setNotifications}
             />
             <View style={styles.settingsDivider} />
             <SettingsItem
               icon={<Volume2 size={20} color="#8b5cf6" />}
               title="Auto-play Next Story"
               subtitle="Automatically play the next story"
-              onPress={() => setAutoPlay(!autoPlay)}
-              showArrow={false}
-              rightComponent={
-                <Switch
-                  value={autoPlay}
-                  onValueChange={setAutoPlay}
-                  thumbColor={autoPlay ? '#8b5cf6' : '#f4f4f5'}
-                  trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
-                />
-              }
+              hasToggle
+              toggleValue={autoPlay}
+              onToggleChange={setAutoPlay}
             />
             <View style={styles.settingsDivider} />
             <SettingsItem
               icon={<Moon size={20} color="#8b5cf6" />}
               title="Night Mode"
               subtitle="Darker interface for bedtime"
-              onPress={() => setNightMode(!nightMode)}
-              showArrow={false}
-              rightComponent={
-                <Switch
-                  value={nightMode}
-                  onValueChange={setNightMode}
-                  thumbColor={nightMode ? '#8b5cf6' : '#f4f4f5'}
-                  trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
-                />
-              }
+              hasToggle
+              toggleValue={nightMode}
+              onToggleChange={setNightMode}
             />
           </View>
         </View>
@@ -277,16 +392,9 @@ export default function ProfileScreen() {
               icon={<Download size={20} color="#8b5cf6" />}
               title="Download Over WiFi Only"
               subtitle="Save mobile data"
-              onPress={() => setDownloadOverWifi(!downloadOverWifi)}
-              showArrow={false}
-              rightComponent={
-                <Switch
-                  value={downloadOverWifi}
-                  onValueChange={setDownloadOverWifi}
-                  thumbColor={downloadOverWifi ? '#8b5cf6' : '#f4f4f5'}
-                  trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
-                />
-              }
+              hasToggle
+              toggleValue={downloadOverWifi}
+              onToggleChange={setDownloadOverWifi}
             />
             <View style={styles.settingsDivider} />
             <SettingsItem
@@ -381,9 +489,9 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     borderWidth: 4,
     borderColor: '#ffffff',
   },
@@ -406,6 +514,32 @@ const styles = StyleSheet.create({
     color: '#1f2937',
     marginBottom: 5,
   },
+  nameContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    marginBottom: 5,
+    width: '100%',
+  },
+  nameInput: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    borderBottomWidth: 2,
+    borderBottomColor: '#8b5cf6',
+    paddingBottom: 2,
+    minWidth: 200,
+    textAlign: 'center',
+  },
+  editNameButton: {
+    position: 'absolute',
+    top: '50%',
+    transform: [{ translateY: -12 }],
+    padding: 4,
+    borderRadius: 16,
+    backgroundColor: '#8b5cf6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
   userEmail: {
     fontSize: 16,
     color: '#6b7280',
@@ -421,11 +555,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#e5e7eb',
-  },
-  editButtonText: {
-    fontSize: 14,
-    color: '#8b5cf6',
-    fontWeight: '600',
   },
   statsContainer: {
     flexDirection: 'row',
@@ -679,5 +808,19 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 100,
+  },
+  customToggle: {
+    borderRadius: 15.5,
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  customToggleThumb: {
+    borderRadius: 13.5,
+    position: 'absolute',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
   },
 });
