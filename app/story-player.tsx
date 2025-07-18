@@ -11,8 +11,7 @@ import {
   Share, 
   ArrowLeft,
   Volume2,
-  Moon,
-  Star
+  Moon, Star
 } from 'lucide-react-native';
 import { usePlayer } from '@/contexts/PlayerContext';
 
