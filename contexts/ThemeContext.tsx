@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const lightTheme = {
   mode: 'light',
-  background: '#f8fafc',
+  background: '#f0f3f7ff',
   card: '#ffffff',
   text: '#1f2937',
   secondaryText: '#6b7280',
@@ -12,7 +12,7 @@ const lightTheme = {
   border: '#e5e7eb',
   overlay: 'rgba(0,0,0,0.25)',
   gradientBackground: {
-    colors: ['#edceffff', '#fcd8ecff'],
+    colors: ['#edceffff', '#fcd8ecff'] as const,
   },
   tabColor: '#ffffff',
 };
@@ -27,7 +27,7 @@ const darkTheme = {
   border: '#27272a',
   overlay: 'rgba(0,0,0,0.5)',
   gradientBackground: {
-    colors: ['#1b1b20ff', '#0c0c0eff'],
+    colors: ['#1b1b20ff', '#0c0c0eff'] as const,
   },
   tabColor: '#000000',
 };

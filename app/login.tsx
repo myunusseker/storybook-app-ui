@@ -124,8 +124,10 @@ export default function LoginScreen() {
       await updateProfile(userCredential.user, { displayName: name.trim() });
       // Create user doc in Firestore
       await setDoc(doc(db, 'users', userCredential.user.uid), {
+        uid: userCredential.user.uid,
         name: name.trim(),
         email,
+        photoURL: '',
         createdAt: new Date().toISOString(),
       });
       console.log('User profile created in Firestore');

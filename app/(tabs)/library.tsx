@@ -140,7 +140,7 @@ export default function LibraryScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>Story Library</Text>
-          <Text style={styles.subtitle}>Your personal collection</Text>
+          <Text style={styles.subtitle}>Your personal story collection</Text>
         </View>
 
         <View style={styles.searchContainer}>
