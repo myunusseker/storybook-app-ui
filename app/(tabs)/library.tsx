@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { useTheme } from '@/contexts/ThemeContext';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Search, Filter, Heart, Clock, Star } from 'lucide-react-native';
+import { router } from 'expo-router';
+import { usePlayer } from '@/contexts/PlayerContext';
 
 const categories = ['All', 'New', 'Favorites', 'Adventure', 'Fantasy', 'Bedtime'];
 
@@ -9,54 +12,72 @@ const libraryStories = [
   {
     id: 1,
     title: 'The Magical Forest',
+    description: 'A young adventurer discovers a forest filled with talking animals and hidden treasures.',
     duration: '8 min',
     rating: 4.8,
     category: 'Adventure',
+    cover: 'https://images.pexels.com/photos/1496373/pexels-photo-1496373.jpeg?auto=compress&cs=tinysrgb&w=400',
+    color: ['#667eea', '#764ba2'],
     isNew: true,
     isFavorite: false,
   },
   {
     id: 2,
     title: 'Luna and the Moon Rabbit',
+    description: 'Luna befriends a magical rabbit who lives on the moon and grants wishes.',
     duration: '10 min',
     rating: 4.9,
     category: 'Fantasy',
+    cover: 'https://images.pexels.com/photos/1346713/pexels-photo-1346713.jpeg?auto=compress&cs=tinysrgb&w=400',
+    color: ['#f093fb', '#f5576c'],
     isNew: false,
     isFavorite: true,
   },
   {
     id: 3,
     title: 'The Sleepy Dragon',
+    description: 'A friendly dragon who loves bedtime stories and helps children fall asleep.',
     duration: '12 min',
     rating: 4.7,
     category: 'Bedtime',
+    cover: 'https://images.pexels.com/photos/1097930/pexels-photo-1097930.jpeg?auto=compress&cs=tinysrgb&w=400',
+    color: ['#4facfe', '#00f2fe'],
     isNew: false,
     isFavorite: false,
   },
   {
     id: 4,
     title: 'The Starlight Princess',
+    description: 'A princess who paints the night sky with stars and creates beautiful dreams.',
     duration: '9 min',
     rating: 4.8,
     category: 'Fantasy',
+    cover: 'https://images.pexels.com/photos/1323712/pexels-photo-1323712.jpeg?auto=compress&cs=tinysrgb&w=400',
+    color: ['#fa709a', '#fee140'],
     isNew: true,
     isFavorite: true,
   },
   {
     id: 5,
     title: 'Ocean Adventure',
+    description: 'Dive deep into the underwater world filled with colorful fish and coral reefs.',
     duration: '11 min',
     rating: 4.6,
     category: 'Adventure',
+    cover: 'https://images.pexels.com/photos/3881104/pexels-photo-3881104.jpeg?auto=compress&cs=tinysrgb&w=400',
+    color: ['#a8edea', '#fed6e3'],
     isNew: false,
     isFavorite: false,
   },
   {
     id: 6,
     title: 'The Gentle Giant',
+    description: 'A kind-hearted giant who helps animals and protects the forest.',
     duration: '7 min',
     rating: 4.9,
     category: 'Bedtime',
+    cover: 'https://images.pexels.com/photos/1029604/pexels-photo-1029604.jpeg?auto=compress&cs=tinysrgb&w=400',
+    color: ['#d299c2', '#fef9d7'],
     isNew: false,
     isFavorite: true,
   },
@@ -66,6 +87,9 @@ export default function LibraryScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [favorites, setFavorites] = useState<number[]>([2, 4, 6]);
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
+  const { openPlayer } = usePlayer();
 
   const toggleFavorite = (id: number) => {
     setFavorites(prev => 
@@ -73,6 +97,30 @@ export default function LibraryScreen() {
         ? prev.filter(fav => fav !== id)
         : [...prev, id]
     );
+  };
+
+  const handlePlayStory = (story: any) => {
+    const storyData = {
+      id: story.id.toString(),
+      title: story.title,
+      description: story.description,
+      duration: story.duration,
+      cover: story.cover,
+      color: story.color,
+    };
+    
+    openPlayer(storyData);
+    router.push({
+      pathname: '/story-player',
+      params: { 
+        id: story.id,
+        title: story.title,
+        description: story.description,
+        duration: story.duration,
+        cover: story.cover,
+        color: JSON.stringify(story.color),
+      }
+    });
   };
 
   const filteredStories = libraryStories.filter(story => {
@@ -86,7 +134,7 @@ export default function LibraryScreen() {
 
   return (
     <LinearGradient
-      colors={['#fdf2f8', '#f8fafc']}
+      colors={theme.gradientBackground.colors}
       style={styles.container}
     >
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -139,11 +187,19 @@ export default function LibraryScreen() {
 
         <View style={styles.storiesList}>
           {filteredStories.map((story) => (
-            <TouchableOpacity key={story.id} style={styles.storyItem}>
+            <TouchableOpacity 
+              key={story.id} 
+              style={styles.storyItem}
+              onPress={() => handlePlayStory(story)}
+            >
               <View style={styles.storyItemContent}>
                 <View style={styles.storyItemLeft}>
                   <View style={styles.storyIcon}>
-                    <Text style={styles.storyIconText}>{story.title.charAt(0)}</Text>
+                    <Image 
+                      source={{ uri: story.cover }} 
+                      style={styles.storyImage}
+                      resizeMode="cover"
+                    />
                   </View>
                   <View style={styles.storyInfo}>
                     <Text style={styles.storyTitle}>{story.title}</Text>
@@ -186,9 +242,10 @@ export default function LibraryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: theme.background,
   },
   header: {
     paddingHorizontal: 20,
@@ -198,12 +255,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: theme.text,
     marginBottom: 5,
   },
   subtitle: {
     fontSize: 16,
-    color: '#6b7280',
+    color: theme.secondaryText,
     fontWeight: '500',
   },
   searchContainer: {
@@ -216,7 +273,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.card,
     borderRadius: 12,
     paddingHorizontal: 15,
     paddingVertical: 12,
@@ -230,12 +287,12 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#1f2937',
+    color: theme.text,
   },
   filterButton: {
     width: 48,
     height: 48,
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.card,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
@@ -253,18 +310,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.card,
     marginRight: 10,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: theme.border,
   },
   categoryButtonActive: {
-    backgroundColor: '#8b5cf6',
-    borderColor: '#8b5cf6',
+    backgroundColor: theme.accent,
+    borderColor: theme.accent,
   },
   categoryText: {
     fontSize: 14,
-    color: '#6b7280',
+    color: theme.secondaryText,
     fontWeight: '500',
   },
   categoryTextActive: {
@@ -275,7 +332,7 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   storyItem: {
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.card,
     borderRadius: 12,
     padding: 15,
     marginBottom: 10,
@@ -299,10 +356,16 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#8b5cf6',
+    backgroundColor: theme.accent,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    overflow: 'hidden',
+  },
+  storyImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 24,
   },
   storyIconText: {
     fontSize: 18,
@@ -315,7 +378,7 @@ const styles = StyleSheet.create({
   storyTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1f2937',
+    color: theme.text,
     marginBottom: 5,
   },
   storyMeta: {
@@ -329,7 +392,7 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: theme.secondaryText,
     fontWeight: '500',
   },
   storyItemRight: {
@@ -352,11 +415,11 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#f8fafc',
+    backgroundColor: theme.background,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: theme.border,
   },
   bottomSpacing: {
     height: 100,

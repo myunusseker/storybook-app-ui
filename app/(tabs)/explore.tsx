@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Play, Heart, Clock, Star, Search, Filter } from 'lucide-react-native';
@@ -60,6 +61,8 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [favorites, setFavorites] = useState<number[]>([2, 4, 6]);
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   const { openPlayer } = usePlayer();
 
   const toggleFavorite = (id: number) => {
@@ -109,7 +112,7 @@ export default function HomeScreen() {
 
   return (
     <LinearGradient
-      colors={['#fdf2f8', '#f8fafc']}
+      colors={theme.gradientBackground.colors}
       style={styles.container}
     >
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -120,17 +123,17 @@ export default function HomeScreen() {
 
         <View style={styles.searchContainer}>
           <View style={styles.searchBar}>
-            <Search size={20} color="#9ca3af" />
+            <Search size={20} color={theme.secondaryText} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search magical stories..."
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={theme.secondaryText}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
           </View>
           <TouchableOpacity style={styles.filterButton}>
-            <Filter size={20} color="#8b5cf6" />
+            <Filter size={20} color={theme.accent} />
           </TouchableOpacity>
         </View>
 
@@ -231,7 +234,7 @@ export default function HomeScreen() {
                   </Text>
                   <View style={styles.storyMeta}>
                     <View style={styles.metaItem}>
-                      <Clock size={12} color="#94a3b8" />
+                      <Clock size={12} color={theme.secondaryText} />
                       <Text style={styles.metaTextSmall}>{story.duration}</Text>
                     </View>
                     <View style={styles.metaItem}>
@@ -249,7 +252,7 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -261,12 +264,12 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: theme.text,
     marginBottom: 5,
   },
   subtitle: {
     fontSize: 16,
-    color: '#6b7280',
+    color: theme.secondaryText,
     fontWeight: '500',
   },
   searchContainer: {
@@ -279,7 +282,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.card,
     borderRadius: 12,
     paddingHorizontal: 15,
     paddingVertical: 12,
@@ -293,12 +296,12 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#1f2937',
+    color: theme.text,
   },
   filterButton: {
     width: 48,
     height: 48,
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.card,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
@@ -316,18 +319,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.card,
     marginRight: 10,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: theme.border,
   },
   categoryButtonActive: {
-    backgroundColor: '#8b5cf6',
-    borderColor: '#8b5cf6',
+    backgroundColor: theme.accent,
+    borderColor: theme.accent,
   },
   categoryText: {
     fontSize: 14,
-    color: '#6b7280',
+    color: theme.secondaryText,
     fontWeight: '500',
   },
   categoryTextActive: {
@@ -340,7 +343,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: theme.text,
     marginBottom: 15,
   },
   featuredCard: {
@@ -393,7 +396,7 @@ const styles = StyleSheet.create({
   },
   metaTextSmall: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: theme.secondaryText,
     fontWeight: '500',
   },
   playButton: {
@@ -417,7 +420,7 @@ const styles = StyleSheet.create({
   },
   storyCard: {
     width: (width - 55) / 2,
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.card,
     borderRadius: 15,
     overflow: 'hidden',
     elevation: 3,
@@ -473,12 +476,12 @@ const styles = StyleSheet.create({
   storyTitle: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: theme.text,
     marginBottom: 5,
   },
   storyDescription: {
     fontSize: 12,
-    color: '#6b7280',
+    color: theme.secondaryText,
     lineHeight: 16,
     marginBottom: 8,
   },

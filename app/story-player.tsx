@@ -14,6 +14,7 @@ import {
   Moon, Star
 } from 'lucide-react-native';
 import { usePlayer } from '@/contexts/PlayerContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
@@ -25,6 +26,12 @@ export default function StoryPlayerScreen() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [isNightMode, setIsNightMode] = useState(false);
   const { minimizePlayer } = usePlayer();
+  const { theme } = useTheme();
+
+  // Auto-detect dark mode from theme context
+  useEffect(() => {
+    setIsNightMode(theme.mode === 'dark');
+  }, [theme.mode]);
 
   // Auto-minimize when screen loses focus
   useFocusEffect(
@@ -104,7 +111,11 @@ export default function StoryPlayerScreen() {
             style={styles.headerButton}
             onPress={() => setIsNightMode(!isNightMode)}
           >
-            <Moon size={20} color="#ffffff" />
+            <Moon 
+              size={20} 
+              color="#ffffff" 
+              fill={isNightMode ? "#ffffff" : "transparent"}
+            />
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerButton}>
             <Share size={20} color="#ffffff" />
@@ -119,7 +130,10 @@ export default function StoryPlayerScreen() {
             style={styles.coverImage} 
           />
           <LinearGradient 
-            colors={['transparent', 'rgba(0,0,0,0.8)']}
+            colors={isNightMode 
+              ? ['transparent', 'rgba(0,0,0,0.9)'] 
+              : ['transparent', 'rgba(0,0,0,0.8)']
+            }
             style={styles.coverOverlay}
           >
             <View style={styles.storyInfo}>
@@ -134,7 +148,10 @@ export default function StoryPlayerScreen() {
         </View>
       </View>
 
-      <View style={styles.playerContainer}>
+      <View style={[
+        styles.playerContainer,
+        { backgroundColor: isNightMode ? '#23232a' : 'rgba(255, 255, 255, 0.1)' }
+      ]}>
         <View style={styles.progressSection}>
           <View style={styles.progressBar}>
             <View 

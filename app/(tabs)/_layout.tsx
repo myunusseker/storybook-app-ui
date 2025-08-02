@@ -1,17 +1,19 @@
-import { Tabs } from 'expo-router';
-import { Moon as Home, User, Book } from 'lucide-react-native';
 import React from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
+import { Tabs } from 'expo-router';
+import { Moon as Home, User, Book, Mic } from 'lucide-react-native';
 
-export default function TabLayout() {
+export default function TabsLayout() {
+  const { theme } = useTheme();
   return (
     <Tabs
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#ffffff',
+          backgroundColor: theme.tabColor,
           borderTopWidth: 0,
           elevation: 10,
-          shadowColor: '#000',
+          shadowColor: theme.mode === 'dark' ? '#000' : '#000',
           shadowOffset: { width: 0, height: -2 },
           shadowOpacity: 0.1,
           shadowRadius: 8,
@@ -19,16 +21,17 @@ export default function TabLayout() {
           paddingBottom: 20,
           paddingTop: 10,
         },
-        tabBarActiveTintColor: '#8b5cf6',
-        tabBarInactiveTintColor: '#94a3b8',
+        tabBarActiveTintColor: theme.accent,
+        tabBarInactiveTintColor: theme.secondaryText,
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
           marginTop: 5,
         },
-      }}>
+      })}
+    >
       <Tabs.Screen
-        name="index"
+        name="explore"
         options={{
           title: 'Explore',
           tabBarIcon: ({ size, color }) => (
@@ -42,6 +45,15 @@ export default function TabLayout() {
           title: 'Library',
           tabBarIcon: ({ size, color }) => (
             <Book size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="ai_voices"
+        options={{
+          title: 'AI Voices',
+          tabBarIcon: ({ size, color }) => (
+            <Mic size={size} color={color} />
           ),
         }}
       />

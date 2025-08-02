@@ -1,24 +1,67 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, TextInput } from 'react-native';
+import { useTheme } from '@/contexts/ThemeContext';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Platform, ActivityIndicator, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { User, Mail, Calendar, Mic, Pencil as Edit, VolumeX, Volume2, RefreshCw, Trash2, Camera, Bell, Moon, Download, Database, Shield, CircleHelp as HelpCircle, MessageCircle, Star, LogOut, ChevronRight } from 'lucide-react-native';
 import { router } from 'expo-router';
+import { signOut, updateProfile } from 'firebase/auth';
+import * as ImagePicker from 'expo-image-picker';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { auth, db } from '@/firebaseConfig';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 export default function ProfileScreen() {
-  const [hasVoiceSetup, setHasVoiceSetup] = useState(false);
-  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  // Voice setup state and logic moved to ai_voices.tsx
   const [notifications, setNotifications] = useState(true);
   const [autoPlay, setAutoPlay] = useState(false);
-  const [nightMode, setNightMode] = useState(false);
   const [downloadOverWifi, setDownloadOverWifi] = useState(true);
+  const { theme, mode, setThemeMode } = useTheme();
+  const styles = getStyles(theme);
   
-  // Edit mode state
+  // User profile state
   const [isEditingName, setIsEditingName] = useState(false);
-  const [editedName, setEditedName] = useState('Sarah Johnson');
-  const [editedEmail, setEditedEmail] = useState('sarah.johnson@email.com');
+  const [editedName, setEditedName] = useState('');
+  const [editedEmail, setEditedEmail] = useState('');
+  const [photoURL, setPhotoURL] = useState('');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [createdAt, setCreatedAt] = useState('');
   const [nameWidth, setNameWidth] = useState(0);
   const nameTextRef = useRef<Text>(null);
   const nameInputRef = useRef<TextInput>(null);
+  // Fetch user profile info
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
+        setEditedEmail(user.email || '');
+        setPhotoURL(user.photoURL || '');
+        // Try to get name from displayName, fallback to Firestore
+        if (user.displayName) {
+          setEditedName(user.displayName);
+        } else {
+          // fallback to Firestore
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            setEditedName(data.name || '');
+            setCreatedAt(data.createdAt || '');
+          }
+        }
+        // Always try to get createdAt from Firestore
+        if (user.uid) {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            setCreatedAt(data.createdAt || '');
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    fetchProfile();
+  }, []);
 
   // Force re-measurement when text changes
   useEffect(() => {
@@ -35,42 +78,69 @@ export default function ProfileScreen() {
     return () => clearTimeout(timer);
   }, [editedName, isEditingName]);
 
-  const handleVoiceSetup = () => {
-    router.push('/voice-setup');
+  // Change photo logic
+  const handleChangePhoto = async () => {
+    try {
+      // Ask for permission
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        // Optionally, you can show a toast or inline error here
+        return;
+      }
+      // Pick image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false, // disables cropping/zooming
+        quality: 0.7,
+        allowsMultipleSelection: false,
+      });
+      if (result.canceled) return;
+      setUploadingPhoto(true);
+      const user = auth.currentUser;
+      if (!user) throw new Error('Not logged in');
+      const imageUri = result.assets[0].uri;
+      // Upload to Firebase Storage
+      const storage = getStorage();
+      const ext = imageUri.split('.').pop();
+      const storageRef = ref(storage, `profile_photos/${user.uid}.${ext}`);
+      // Convert to blob
+      let blob;
+      if (Platform.OS === 'web') {
+        const response = await fetch(imageUri);
+        blob = await response.blob();
+      } else {
+        const response = await fetch(imageUri);
+        blob = await response.blob();
+      }
+      await uploadBytes(storageRef, blob);
+      const downloadURL = await getDownloadURL(storageRef);
+      // Update Auth
+      await updateProfile(user, { photoURL: downloadURL });
+      setPhotoURL(downloadURL);
+      // Update Firestore
+      await updateDoc(doc(db, 'users', user.uid), { photoURL: downloadURL });
+      // No alert, just hide loader
+    } catch (e) {
+      // Optionally, you can show a toast or inline error here
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
-  const handleRecalibrateVoice = () => {
-    Alert.alert(
-      'Recalibrate Voice',
-      'This will update your AI voice model. You\'ll need to record new voice samples.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Continue', onPress: handleVoiceSetup }
-      ]
-    );
-  };
-
-  const handleDeleteVoice = () => {
-    Alert.alert(
-      'Delete Voice',
-      'Are you sure you want to delete your AI voice? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive',
-          onPress: () => {
-            setHasVoiceSetup(false);
-            Alert.alert('Voice Deleted', 'Your AI voice has been removed.');
-          }
-        }
-      ]
-    );
-  };
-
-  const handleEditName = () => {
+  const handleEditName = async () => {
     if (isEditingName) {
-      // Save the name
+      // Save the name to Firebase Auth and Firestore
+      try {
+        const user = auth.currentUser;
+        if (user && editedName.trim()) {
+          // Update displayName in Auth
+          await updateProfile(user, { displayName: editedName.trim() });
+          // Update name in Firestore
+          await updateDoc(doc(db, 'users', user.uid), { name: editedName.trim() });
+        }
+      } catch (e) {
+        // Optionally show error
+      }
       setIsEditingName(false);
     } else {
       // Start editing
@@ -90,9 +160,13 @@ export default function ProfileScreen() {
       'Are you sure you want to log out?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Log Out', style: 'destructive', onPress: () => {
-          // Handle logout logic
-          console.log('Logging out...');
+        { text: 'Log Out', style: 'destructive', onPress: async () => {
+            try {
+              await signOut(auth);
+              // Firebase auth listener will handle navigation
+            } catch (e) {
+              Alert.alert('Logout Failed', 'Could not log out.');
+            }
         }}
       ]
     );
@@ -129,7 +203,7 @@ export default function ProfileScreen() {
         style={[
           styles.customToggle,
           {
-            backgroundColor: value ? '#c4b5fd' : '#d1d5db',
+            backgroundColor: value ? theme.accent + '80' : theme.background,
             width: toggleWidth,
             height: toggleHeight,
           }
@@ -143,7 +217,7 @@ export default function ProfileScreen() {
             {
               width: thumbSize,
               height: thumbSize,
-              backgroundColor: value ? '#8b5cf6' : '#f4f4f5',
+              backgroundColor: value ? theme.accent : theme.border,
               transform: [{
                 translateX: value 
                   ? toggleWidth - thumbSize - thumbMargin 
@@ -193,7 +267,7 @@ export default function ProfileScreen() {
         {hasToggle && toggleValue !== undefined && onToggleChange ? (
           <CustomToggle value={toggleValue} onValueChange={onToggleChange} />
         ) : (
-          showArrow && <ChevronRight size={20} color="#94a3b8" />
+          showArrow && <ChevronRight size={20} color={theme.secondaryText} />
         )}
       </View>
     );
@@ -201,26 +275,31 @@ export default function ProfileScreen() {
 
   return (
     <LinearGradient
-      colors={['#fdf2f8', '#f8fafc']}
+      colors={theme.gradientBackground.colors}
       style={styles.container}
     >
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={styles.profileImageContainer}>
             <Image
-              source={{ uri: 'https://images.pexels.com/photos/1239288/pexels-photo-1239288.jpeg?auto=compress&cs=tinysrgb&w=200' }}
+              source={{ uri: photoURL || `https://avatar.iran.liara.run/username?username=${editedName || editedEmail || 'User'}` }}
               style={styles.profileImage}
             />
-            <TouchableOpacity style={styles.cameraButton}>
-              <Camera size={16} color="#ffffff" />
+            {uploadingPhoto && (
+              <View style={styles.profileImageLoadingOverlay}>
+                <ActivityIndicator size="large" color={theme.accent} />
+              </View>
+            )}
+            <TouchableOpacity style={styles.cameraButton} onPress={handleChangePhoto} disabled={uploadingPhoto}>
+              <Camera size={16} color={uploadingPhoto ? theme.secondaryText : theme.accent} />
             </TouchableOpacity>
           </View>
-          <View style={styles.nameContainer}>
+          <View style={[styles.nameContainer, { flexDirection: 'row', justifyContent: 'center', marginLeft: 24}]}>
             {isEditingName ? (
               <TextInput
                 ref={nameInputRef}
-                style={styles.nameInput}
                 value={editedName}
+                style={styles.userName}
                 onChangeText={setEditedName}
                 onBlur={handleEditName}
                 onLayout={(event) => {
@@ -229,6 +308,7 @@ export default function ProfileScreen() {
                 }}
                 autoFocus
                 placeholder="Enter your name"
+                placeholderTextColor={theme.secondaryText}
               />
             ) : (
               <Text 
@@ -247,13 +327,11 @@ export default function ProfileScreen() {
               style={[
                 styles.editNameButton,
                 {
-                  left: `50%`,
-                  marginLeft: (nameWidth / 2) + 8, // Half the name width + 8px offset
-                  marginTop: -4
+                  marginLeft: 8, // Half the name width + 8px offset
                 }
               ]}
             >
-              <Edit size={16} color="#ffffff" />
+              <Edit size={16} color={theme.accent} />
             </TouchableOpacity>
           </View>
           <Text style={styles.userEmail}>{editedEmail}</Text>
@@ -282,82 +360,25 @@ export default function ProfileScreen() {
           </Text>
           <View style={styles.infoCard}>
             <View style={styles.infoItem}>
-              <Calendar size={20} color="#8b5cf6" />
+              <Calendar size={20} color={theme.accent} />
               <Text style={styles.infoLabel}>Member Since</Text>
-              <Text style={styles.infoValue}>December 2024</Text>
+              <Text style={styles.infoValue}>{createdAt ? new Date(createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long' }) : ''}</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Star size={20} color={theme.accent} />
+              <Text style={styles.infoLabel}>Membership Tier</Text>
+              <Text style={styles.infoValue}>Free</Text>
             </View>
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>AI Voice</Text>
-          {!hasVoiceSetup ? (
-            <TouchableOpacity style={styles.voiceSetupCard} onPress={handleVoiceSetup}>
-              <LinearGradient
-                colors={['#8b5cf6', '#7c3aed']}
-                style={styles.voiceSetupGradient}
-              >
-                <View style={styles.voiceSetupContent}>
-                  <View style={styles.voiceSetupIcon}>
-                    <Mic size={24} color="#ffffff" />
-                  </View>
-                  <View style={styles.voiceSetupText}>
-                    <Text style={styles.voiceSetupTitle}>Set Up Your Voice</Text>
-                    <Text style={styles.voiceSetupDescription}>
-                      Record your voice to create personalized AI narrations
-                    </Text>
-                  </View>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.voiceCard}>
-              <View style={styles.voiceStatus}>
-                <View style={styles.voiceStatusIcon}>
-                  <Mic size={20} color="#10b981" />
-                </View>
-                <View style={styles.voiceStatusText}>
-                  <Text style={styles.voiceStatusTitle}>Voice Ready</Text>
-                  <Text style={styles.voiceStatusDescription}>
-                    Your AI voice is set up and ready to use
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.voiceToggle}
-                  onPress={() => setIsVoiceEnabled(!isVoiceEnabled)}
-                >
-                  {isVoiceEnabled ? (
-                    <Volume2 size={20} color="#10b981" />
-                  ) : (
-                    <VolumeX size={20} color="#ef4444" />
-                  )}
-                </TouchableOpacity>
-              </View>
-              <View style={styles.voiceActions}>
-                <TouchableOpacity
-                  style={styles.voiceActionButton}
-                  onPress={handleRecalibrateVoice}
-                >
-                  <RefreshCw size={16} color="#8b5cf6" />
-                  <Text style={styles.voiceActionText}>Recalibrate</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.voiceActionButton, styles.deleteButton]}
-                  onPress={handleDeleteVoice}
-                >
-                  <Trash2 size={16} color="#ef4444" />
-                  <Text style={[styles.voiceActionText, styles.deleteButtonText]}>Delete</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-        </View>
+        {/* AI Voice section moved to ai_voices.tsx */}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>App Settings</Text>
           <View style={styles.settingsCard}>
             <SettingsItem
-              icon={<Bell size={20} color="#8b5cf6" />}
+              icon={<Bell size={20} color={theme.accent} />}
               title="Push Notifications"
               subtitle="Get notified about new stories"
               hasToggle
@@ -366,7 +387,7 @@ export default function ProfileScreen() {
             />
             <View style={styles.settingsDivider} />
             <SettingsItem
-              icon={<Volume2 size={20} color="#8b5cf6" />}
+              icon={<Volume2 size={20} color={theme.accent} />}
               title="Auto-play Next Story"
               subtitle="Automatically play the next story"
               hasToggle
@@ -374,14 +395,45 @@ export default function ProfileScreen() {
               onToggleChange={setAutoPlay}
             />
             <View style={styles.settingsDivider} />
-            <SettingsItem
-              icon={<Moon size={20} color="#8b5cf6" />}
-              title="Night Mode"
-              subtitle="Darker interface for bedtime"
-              hasToggle
-              toggleValue={nightMode}
-              onToggleChange={setNightMode}
-            />
+            <View style={{ padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+              <Moon size={20} color={theme.accent} />
+              <Text style={{ color: theme.text, fontWeight: '600', fontSize: 16, flex: 1 }}>Theme</Text>
+              <TouchableOpacity
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  backgroundColor: mode === 'system' ? theme.accent : theme.card,
+                  marginRight: 4,
+                }}
+                onPress={() => setThemeMode('system')}
+              >
+                <Text style={{ color: mode === 'system' ? '#fff' : theme.text, fontWeight: '600' }}>System</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  backgroundColor: mode === 'light' ? theme.accent : theme.card,
+                  marginRight: 4,
+                }}
+                onPress={() => setThemeMode('light')}
+              >
+                <Text style={{ color: mode === 'light' ? '#fff' : theme.text, fontWeight: '600' }}>Light</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  backgroundColor: mode === 'dark' ? theme.accent : theme.card,
+                }}
+                onPress={() => setThemeMode('dark')}
+              >
+                <Text style={{ color: mode === 'dark' ? '#fff' : theme.text, fontWeight: '600' }}>Dark</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -389,7 +441,7 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Downloads</Text>
           <View style={styles.settingsCard}>
             <SettingsItem
-              icon={<Download size={20} color="#8b5cf6" />}
+              icon={<Download size={20} color={theme.accent} />}
               title="Download Over WiFi Only"
               subtitle="Save mobile data"
               hasToggle
@@ -398,7 +450,7 @@ export default function ProfileScreen() {
             />
             <View style={styles.settingsDivider} />
             <SettingsItem
-              icon={<Database size={20} color="#8b5cf6" />}
+              icon={<Database size={20} color={theme.accent} />}
               title="Storage Used"
               subtitle="256 MB of downloaded stories"
               onPress={() => {}}
@@ -410,7 +462,7 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Privacy & Security</Text>
           <View style={styles.settingsCard}>
             <SettingsItem
-              icon={<Shield size={20} color="#8b5cf6" />}
+              icon={<Shield size={20} color={theme.accent} />}
               title="Privacy Policy"
               subtitle="How we protect your data"
               onPress={() => {}}
@@ -422,21 +474,21 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Support</Text>
           <View style={styles.settingsCard}>
             <SettingsItem
-              icon={<HelpCircle size={20} color="#8b5cf6" />}
+              icon={<HelpCircle size={20} color={theme.accent} />}
               title="Help Center"
               subtitle="Get answers to common questions"
               onPress={() => {}}
             />
             <View style={styles.settingsDivider} />
             <SettingsItem
-              icon={<MessageCircle size={20} color="#8b5cf6" />}
+              icon={<MessageCircle size={20} color={theme.accent} />}
               title="Contact Support"
               subtitle="Get help from our team"
               onPress={() => {}}
             />
             <View style={styles.settingsDivider} />
             <SettingsItem
-              icon={<Star size={20} color="#8b5cf6" />}
+              icon={<Star size={20} color={theme.accent} />}
               title="Rate the App"
               subtitle="Help us improve"
               onPress={() => {}}
@@ -474,9 +526,21 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
+  },
+  profileImageLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 80,
+    zIndex: 10,
   },
   header: {
     alignItems: 'center',
@@ -486,14 +550,16 @@ const styles = StyleSheet.create({
   },
   profileImageContainer: {
     position: 'relative',
+    marginTop: 20,
     marginBottom: 15,
   },
   profileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-    borderColor: '#ffffff',
+    width: '40%',
+    aspectRatio: 1,
+    resizeMode: 'cover',
+    borderRadius: 80,
+    borderWidth: 2,
+    borderColor: theme.card,
   },
   cameraButton: {
     position: 'absolute',
@@ -502,16 +568,16 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#8b5cf6',
+    backgroundColor: theme.card,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: theme.card,
   },
   userName: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: theme.text,
     marginBottom: 5,
   },
   nameContainer: {
@@ -523,26 +589,19 @@ const styles = StyleSheet.create({
   nameInput: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: theme.text,
     borderBottomWidth: 2,
-    borderBottomColor: '#8b5cf6',
+    borderBottomColor: theme.accent,
     paddingBottom: 2,
     minWidth: 200,
     textAlign: 'center',
   },
   editNameButton: {
-    position: 'absolute',
-    top: '50%',
-    transform: [{ translateY: -12 }],
-    padding: 4,
-    borderRadius: 16,
-    backgroundColor: '#8b5cf6',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    position: 'relative',
   },
   userEmail: {
     fontSize: 16,
-    color: '#6b7280',
+    color: theme.secondaryText,
     marginBottom: 15,
   },
   editButton: {
@@ -552,13 +611,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.card,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: theme.border,
   },
   statsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.card,
     marginHorizontal: 20,
     borderRadius: 15,
     padding: 20,
@@ -576,16 +635,16 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: theme.text,
     marginBottom: 5,
   },
   statLabel: {
     fontSize: 14,
-    color: '#6b7280',
+    color: theme.secondaryText,
   },
   statDivider: {
     width: 1,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: theme.border,
     marginHorizontal: 20,
   },
   section: {
@@ -595,13 +654,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: theme.text,
     marginBottom: 15,
   },
   infoCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.card,
     borderRadius: 15,
     padding: 20,
+    paddingBottom: 5,
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -615,13 +675,13 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 14,
-    color: '#6b7280',
+    color: theme.secondaryText,
     marginLeft: 15,
     flex: 1,
   },
   infoValue: {
     fontSize: 14,
-    color: '#1f2937',
+    color: theme.text,
     fontWeight: '500',
   },
   voiceSetupCard: {
@@ -664,7 +724,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   voiceCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.card,
     borderRadius: 15,
     padding: 20,
     elevation: 3,
@@ -693,22 +753,22 @@ const styles = StyleSheet.create({
   voiceStatusTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1f2937',
+    color: theme.text,
     marginBottom: 3,
   },
   voiceStatusDescription: {
     fontSize: 14,
-    color: '#6b7280',
+    color: theme.secondaryText,
   },
   voiceToggle: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    backgroundColor: theme.background,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: theme.border,
   },
   voiceActions: {
     flexDirection: 'row',
@@ -722,13 +782,13 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: '#f8fafc',
+    backgroundColor: theme.background,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: theme.border,
   },
   voiceActionText: {
     fontSize: 14,
-    color: '#8b5cf6',
+    color: theme.accent,
     fontWeight: '600',
   },
   deleteButton: {
@@ -739,7 +799,7 @@ const styles = StyleSheet.create({
     color: '#ef4444',
   },
   settingsCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.card,
     borderRadius: 15,
     overflow: 'hidden',
     elevation: 3,
@@ -763,7 +823,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    backgroundColor: theme.background,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
@@ -774,21 +834,21 @@ const styles = StyleSheet.create({
   settingsTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1f2937',
+    color: theme.text,
     marginBottom: 2,
   },
   settingsSubtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: theme.secondaryText,
   },
   settingsDivider: {
     height: 1,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: theme.border,
     marginLeft: 75,
   },
   settingsLabel: {
     fontSize: 16,
-    color: '#1f2937',
+    color: theme.text,
     fontWeight: '500',
   },
   footer: {
@@ -799,12 +859,12 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#8b5cf6',
+    color: theme.accent,
     marginBottom: 5,
   },
   footerVersion: {
     fontSize: 14,
-    color: '#6b7280',
+    color: theme.secondaryText,
   },
   bottomSpacing: {
     height: 100,
