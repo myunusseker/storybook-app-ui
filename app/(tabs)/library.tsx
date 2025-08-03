@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Search, Filter, Heart, Clock, Star } from 'lucide-react-native';
+import { Search, Filter, Heart, Clock, Star, Sparkles } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { usePlayer } from '@/contexts/PlayerContext';
+import { useLibrary } from '@/contexts/LibraryContext';
 
-const categories = ['All', 'New', 'Favorites', 'Adventure', 'Fantasy', 'Bedtime'];
+const categories = ['All', 'Favorites', 'New', 'Recently Played', 'Adventure', 'Fantasy', 'Bedtime'];
 
 const libraryStories = [
   {
@@ -41,7 +42,7 @@ const libraryStories = [
     rating: 4.7,
     category: 'Bedtime',
     cover: 'https://images.pexels.com/photos/1097930/pexels-photo-1097930.jpeg?auto=compress&cs=tinysrgb&w=400',
-    color: ['#4facfe', '#00f2fe'],
+    color: ['#00f2fe', '#467aa8ff'],
     isNew: false,
     isFavorite: false,
   },
@@ -86,16 +87,80 @@ const libraryStories = [
 export default function LibraryScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [favorites, setFavorites] = useState<number[]>([2, 4, 6]);
   const { theme } = useTheme();
   const styles = getStyles(theme);
   const { openPlayer } = usePlayer();
+  const { ownedStories, toggleFavorite, isFavorited } = useLibrary();
 
-  const toggleFavorite = (id: number) => {
-    setFavorites(prev => 
-      prev.includes(id) 
-        ? prev.filter(fav => fav !== id)
-        : [...prev, id]
+  // Custom component for special category buttons
+  const renderCategoryButton = (category: string) => {
+    const isSelected = selectedCategory === category;
+    
+    if (category === 'New') {
+      return (
+        <TouchableOpacity
+          key={category}
+          style={[
+            styles.specialCategoryButton,
+            styles.newCategoryButton,
+            isSelected && styles.newCategoryButtonActive
+          ]}
+          onPress={() => setSelectedCategory(category)}
+        >
+          <Text
+            style={[
+              styles.specialCategoryText,
+              isSelected && styles.specialCategoryTextActive
+            ]}
+          >
+            {category}
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+    
+    if (category === 'Favorites') {
+      return (
+        <TouchableOpacity
+          key={category}
+          style={[
+            styles.specialCategoryButton,
+            styles.favoritesCategoryButton,
+            isSelected && styles.favoritesCategoryButtonActive
+          ]}
+          onPress={() => setSelectedCategory(category)}
+        >
+          <Text
+            style={[
+              styles.specialCategoryText,
+              isSelected && styles.specialCategoryTextActive
+            ]}
+          >
+            {category}
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+    
+    // Regular category button
+    return (
+      <TouchableOpacity
+        key={category}
+        style={[
+          styles.categoryButton,
+          isSelected && styles.categoryButtonActive
+        ]}
+        onPress={() => setSelectedCategory(category)}
+      >
+        <Text
+          style={[
+            styles.categoryText,
+            isSelected && styles.categoryTextActive
+          ]}
+        >
+          {category}
+        </Text>
+      </TouchableOpacity>
     );
   };
 
@@ -127,7 +192,7 @@ export default function LibraryScreen() {
     const matchesSearch = story.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || 
       (selectedCategory === 'New' && story.isNew) ||
-      (selectedCategory === 'Favorites' && favorites.includes(story.id)) ||
+      (selectedCategory === 'Favorites' && isFavorited(story.id.toString())) ||
       story.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -164,25 +229,7 @@ export default function LibraryScreen() {
           showsHorizontalScrollIndicator={false}
           style={styles.categoriesContainer}
         >
-          {categories.map((category) => (
-            <TouchableOpacity
-              key={category}
-              style={[
-                styles.categoryButton,
-                selectedCategory === category && styles.categoryButtonActive
-              ]}
-              onPress={() => setSelectedCategory(category)}
-            >
-              <Text
-                style={[
-                  styles.categoryText,
-                  selectedCategory === category && styles.categoryTextActive
-                ]}
-              >
-                {category}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {categories.map((category) => renderCategoryButton(category))}
         </ScrollView>
 
         <View style={styles.storiesList}>
@@ -223,12 +270,12 @@ export default function LibraryScreen() {
                   )}
                   <TouchableOpacity
                     style={styles.favoriteButtonSmall}
-                    onPress={() => toggleFavorite(story.id)}
+                    onPress={() => toggleFavorite(story.id.toString())}
                   >
                     <Heart
                       size={16}
-                      color={favorites.includes(story.id) ? "#ef4444" : "#94a3b8"}
-                      fill={favorites.includes(story.id) ? "#ef4444" : "transparent"}
+                      color={isFavorited(story.id.toString()) ? "#ef4444" : "#94a3b8"}
+                      fill={isFavorited(story.id.toString()) ? "#ef4444" : "transparent"}
                     />
                   </TouchableOpacity>
                 </View>
@@ -326,6 +373,43 @@ const getStyles = (theme: any) => StyleSheet.create({
   },
   categoryTextActive: {
     color: '#ffffff',
+  },
+  // Special category styles
+  specialCategoryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 10,
+    gap: 6,
+  },
+  specialCategoryText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: theme.secondaryText,
+  },
+  specialCategoryTextActive: {
+    color: '#ffffff',
+  },
+  newCategoryButton: {
+    backgroundColor: theme.card,
+    borderWidth: 1,
+    borderColor: theme.newBorderColor,
+  },
+  newCategoryButtonActive: {
+    backgroundColor: theme.newBackgroundColor,
+    borderColor: theme.newBorderColor,
+  },
+  // Favorites category specific styles
+  favoritesCategoryButton: {
+    backgroundColor: theme.card,
+    borderWidth: 1,
+    borderColor: theme.favoriteBorderColor,
+  },
+  favoritesCategoryButtonActive: {
+    backgroundColor: theme.favoriteBackgroundColor,
+    borderColor: theme.favoriteBorderColor,
   },
   storiesList: {
     paddingHorizontal: 20,

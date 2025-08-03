@@ -15,6 +15,10 @@ const lightTheme = {
     colors: ['#edceffff', '#fcd8ecff'] as const,
   },
   tabColor: '#ffffff',
+  newBackgroundColor: '#4a9fffff',
+  newBorderColor: '#3b82f6',
+  favoriteBackgroundColor: '#ff586cff',
+  favoriteBorderColor: '#f43f5e',
 };
 
 const darkTheme = {
@@ -30,6 +34,10 @@ const darkTheme = {
     colors: ['#1b1b20ff', '#0c0c0eff'] as const,
   },
   tabColor: '#000000',
+  newBackgroundColor: '#4a9fffff',
+  newBorderColor: '#3b82f6',
+  favoriteBackgroundColor: '#ff586cff',
+  favoriteBorderColor: '#f43f5e',
 };
 
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, TextInput, Modal, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mic, Plus, Edit, Trash2, Star, Settings, X } from 'lucide-react-native';
 import { router } from 'expo-router';
@@ -23,6 +23,7 @@ export default function AIVoicesScreen() {
   const [voices, setVoices] = useState<AIVoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
+  const [userLoading, setUserLoading] = useState(true); // Add separate user loading state
   
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingVoice, setEditingVoice] = useState<AIVoice | null>(null);
@@ -35,17 +36,26 @@ export default function AIVoicesScreen() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
+      setUserLoading(false); // Set user loading to false once we have the auth state
     });
     return unsubscribe;
   }, []);
 
   // Voices data listener
   useEffect(() => {
+    if (userLoading) {
+      // Don't do anything while we're still determining auth state
+      return;
+    }
+
     if (!user) {
       setVoices([]);
       setLoading(false);
       return;
     }
+
+    // Set loading to true when starting to fetch voices for a user
+    setLoading(true);
 
     const voicesRef = collection(db, 'users', user.uid, 'aiVoices');
     const q = query(voicesRef, orderBy('createdAt', 'desc'));
@@ -71,7 +81,7 @@ export default function AIVoicesScreen() {
     });
 
     return unsubscribe;
-  }, [user]);
+  }, [user, userLoading]); // Add userLoading as dependency
 
   const handleCreateVoice = () => {
     setNewVoiceName('');
@@ -397,9 +407,16 @@ export default function AIVoicesScreen() {
           </Text>
         </View>
 
-        {loading ? (
+        {(loading || userLoading) ? (
           <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading voices...</Text>
+            <View style={styles.loadingContent}>
+              <View style={styles.loadingIcon}>
+                <Mic size={40} color={theme.accent} />
+              </View>
+              <ActivityIndicator size="large" color={theme.accent} style={styles.loadingSpinner} />
+              <Text style={styles.loadingText}>Loading your AI voices...</Text>
+              <Text style={styles.loadingSubtext}>Please wait while we fetch your voice collection</Text>
+            </View>
           </View>
         ) : !user ? (
           <View style={styles.emptyState}>
@@ -548,12 +565,48 @@ const getStyles = (theme: any) => StyleSheet.create({
     paddingHorizontal: 20,
   },
   loadingContainer: {
-    padding: 40,
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 80,
+    paddingHorizontal: 40,
+  },
+  loadingContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: theme.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: theme.accent,
+    elevation: 4,
+    shadowColor: theme.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  loadingSpinner: {
+    marginVertical: 10,
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    color: theme.text,
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  loadingSubtext: {
+    fontSize: 14,
     color: theme.secondaryText,
+    marginTop: 8,
+    textAlign: 'center',
+    opacity: 0.8,
   },
   emptyText: {
     fontSize: 16,

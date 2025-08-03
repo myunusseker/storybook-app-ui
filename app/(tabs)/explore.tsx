@@ -2,17 +2,19 @@ import React, { useState } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Play, Heart, Clock, Star, Search, Filter } from 'lucide-react-native';
+import { Play, Heart, Clock, Star, Search, Filter, Bookmark, Sparkles } from 'lucide-react-native';
 import { router } from 'expo-router';
-import { usePlayer } from '@/contexts/PlayerContext';
+import { usePlayer, Story } from '@/contexts/PlayerContext';
+import { useLibrary } from '@/contexts/LibraryContext';
+import PreviewModal from '@/components/PreviewModal';
 
 const { width } = Dimensions.get('window');
 
-const categories = ['All', 'New', 'Popular', 'Adventure', 'Fantasy', 'Bedtime'];
+const categories = ['All', 'Wishlist', 'New', 'Popular', 'Adventure', 'Fantasy', 'Bedtime'];
 
 const stories = [
   {
-    id: 1,
+    id: '1',
     title: 'The Magical Forest',
     description: 'A young adventurer discovers a forest filled with talking animals and hidden treasures.',
     duration: '8 min',
@@ -21,9 +23,11 @@ const stories = [
     cover: 'https://images.pexels.com/photos/1496373/pexels-photo-1496373.jpeg?auto=compress&cs=tinysrgb&w=400',
     color: ['#667eea', '#764ba2'],
     isNew: true,
+    price: 2.99,
+    previewUrl: 'previews/1',
   },
   {
-    id: 2,
+    id: '2',
     title: 'Luna and the Moon Rabbit',
     description: 'Luna befriends a magical rabbit who lives on the moon and grants wishes.',
     duration: '10 min',
@@ -32,9 +36,11 @@ const stories = [
     cover: 'https://images.pexels.com/photos/1346713/pexels-photo-1346713.jpeg?auto=compress&cs=tinysrgb&w=400',
     color: ['#f093fb', '#f5576c'],
     isNew: false,
+    price: 3.99,
+    previewUrl: 'previews/2',
   },
   {
-    id: 3,
+    id: '3',
     title: 'The Sleepy Dragon',
     description: 'A friendly dragon who loves bedtime stories and helps children fall asleep.',
     duration: '12 min',
@@ -43,9 +49,11 @@ const stories = [
     cover: 'https://images.pexels.com/photos/1097930/pexels-photo-1097930.jpeg?auto=compress&cs=tinysrgb&w=400',
     color: ['#4facfe', '#00f2fe'],
     isNew: false,
+    price: 1.99,
+    previewUrl: 'previews/3',
   },
   {
-    id: 4,
+    id: '4',
     title: 'The Starlight Princess',
     description: 'A princess who paints the night sky with stars and creates beautiful dreams.',
     duration: '9 min',
@@ -54,47 +62,137 @@ const stories = [
     cover: 'https://images.pexels.com/photos/1323712/pexels-photo-1323712.jpeg?auto=compress&cs=tinysrgb&w=400',
     color: ['#fa709a', '#fee140'],
     isNew: true,
+    price: 2.49,
+    previewUrl: 'previews/4',
   },
 ];
 
 export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [favorites, setFavorites] = useState<number[]>([2, 4, 6]);
+  const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const { theme } = useTheme();
   const styles = getStyles(theme);
   const { openPlayer } = usePlayer();
+  const { toggleWishlist, isWishlisted, isOwned, addToLibrary } = useLibrary();
 
-  const toggleFavorite = (id: number) => {
-    setFavorites(prev => 
-      prev.includes(id) 
-        ? prev.filter(fav => fav !== id)
-        : [...prev, id]
-    );
+  const handleToggleWishlist = (storyId: string) => {
+    toggleWishlist(storyId);
   };
 
-  const handlePlayStory = (story: any) => {
-    const storyData = {
-      id: story.id.toString(),
+  const handleStoryPress = (story: any) => {
+    const storyData: Story = {
+      id: story.id,
       title: story.title,
       description: story.description,
       duration: story.duration,
       cover: story.cover,
       color: story.color,
+      rating: story.rating,
+      category: story.category,
+      isNew: story.isNew,
+      price: story.price,
+      previewUrl: story.previewUrl,
     };
+
+    if (isOwned(story.id)) {
+      // If owned, play the full story
+      openPlayer(storyData);
+      router.push({
+        pathname: '/story-player',
+        params: { 
+          id: story.id,
+          title: story.title,
+          description: story.description,
+          duration: story.duration,
+          cover: story.cover,
+          color: JSON.stringify(story.color),
+        }
+      });
+    } else {
+      // If not owned, show preview
+      setSelectedStory(storyData);
+      setShowPreview(true);
+    }
+  };
+
+  // Custom component for special category buttons
+  const renderCategoryButton = (category: string) => {
+    const isSelected = selectedCategory === category;
     
-    openPlayer(storyData);
-    router.push({
-      pathname: '/story-player',
-      params: { 
-        id: story.id,
-        title: story.title,
-        description: story.description,
-        duration: story.duration,
-        cover: story.cover,
-        color: JSON.stringify(story.color),
-      }
-    });
+    if (category === 'New') {
+      return (
+        <TouchableOpacity
+          key={category}
+          style={[
+            styles.specialCategoryButton,
+            styles.newCategoryButton,
+            isSelected && styles.newCategoryButtonActive
+          ]}
+          onPress={() => setSelectedCategory(category)}
+        >
+          <Text
+            style={[
+              styles.specialCategoryText,
+              isSelected && styles.specialCategoryTextActive
+            ]}
+          >
+            {category}
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+    
+    if (category === 'Wishlist') {
+      return (
+        <TouchableOpacity
+          key={category}
+          style={[
+            styles.specialCategoryButton,
+            styles.wishlistCategoryButton,
+            isSelected && styles.wishlistCategoryButtonActive
+          ]}
+          onPress={() => setSelectedCategory(category)}
+        >
+          <Text
+            style={[
+              styles.specialCategoryText,
+              isSelected && styles.specialCategoryTextActive
+            ]}
+          >
+            {category}
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+    
+    // Regular category button
+    return (
+      <TouchableOpacity
+        key={category}
+        style={[
+          styles.categoryButton,
+          isSelected && styles.categoryButtonActive
+        ]}
+        onPress={() => setSelectedCategory(category)}
+      >
+        <Text
+          style={[
+            styles.categoryText,
+            isSelected && styles.categoryTextActive
+          ]}
+        >
+          {category}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const handlePurchase = (story: Story) => {
+    console.log(`Purchased: ${story.title}`);
+    addToLibrary(story.id);
+    // Here you would typically integrate with a payment system
   };
 
   const filteredStories = stories.filter(story => {
@@ -102,6 +200,7 @@ export default function HomeScreen() {
                          story.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || 
       (selectedCategory === 'New' && story.isNew) ||
+      (selectedCategory === 'Wishlist' && isWishlisted(story.id)) ||
       (selectedCategory === 'Popular' && story.rating >= 4.8) ||
       story.category === selectedCategory;
     return matchesSearch && matchesCategory;
@@ -142,32 +241,14 @@ export default function HomeScreen() {
           showsHorizontalScrollIndicator={false}
           style={styles.categoriesContainer}
         >
-          {categories.map((category) => (
-            <TouchableOpacity
-              key={category}
-              style={[
-                styles.categoryButton,
-                selectedCategory === category && styles.categoryButtonActive
-              ]}
-              onPress={() => setSelectedCategory(category)}
-            >
-              <Text
-                style={[
-                  styles.categoryText,
-                  selectedCategory === category && styles.categoryTextActive
-                ]}
-              >
-                {category}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {categories.map((category) => renderCategoryButton(category))}
         </ScrollView>
 
         <View style={styles.featuredSection}>
           <Text style={styles.sectionTitle}>Featured Tonight</Text>
           <TouchableOpacity 
             style={styles.featuredCard}
-            onPress={() => handlePlayStory(featuredStory)}
+            onPress={() => handleStoryPress(featuredStory)}
           >
             <LinearGradient
               colors={featuredStory.color as any}
@@ -203,7 +284,7 @@ export default function HomeScreen() {
               <TouchableOpacity
                 key={story.id}
                 style={styles.storyCard}
-                onPress={() => handlePlayStory(story)}
+                onPress={() => handleStoryPress(story)}
               >
                 <View style={styles.storyImageContainer}>
                   <Image source={{ uri: story.cover }} style={styles.storyImage} />
@@ -218,13 +299,21 @@ export default function HomeScreen() {
                   )}
                   <TouchableOpacity
                     style={styles.favoriteButton}
-                    onPress={() => toggleFavorite(story.id)}
+                    onPress={() => handleToggleWishlist(story.id)}
                   >
-                    <Heart
-                      size={16}
-                      color={favorites.includes(story.id) ? "#ef4444" : "#ffffff"}
-                      fill={favorites.includes(story.id) ? "#ef4444" : "transparent"}
-                    />
+                    {isOwned(story.id) ? (
+                      <Heart
+                        size={16}
+                        color="#ccd3dbff"
+                        fill="transparent"
+                      />
+                    ) : (
+                      <Bookmark
+                        size={16}
+                        color={isWishlisted(story.id) ? theme.favoriteBorderColor : "#ffffff"}
+                        fill={isWishlisted(story.id) ? theme.favoriteBorderColor : "transparent"}
+                      />
+                    )}
                   </TouchableOpacity>
                 </View>
                 <View style={styles.storyInfo}>
@@ -248,6 +337,18 @@ export default function HomeScreen() {
           </View>
         </View>
       </ScrollView>
+      
+      {selectedStory && (
+        <PreviewModal
+          story={selectedStory}
+          visible={showPreview}
+          onClose={() => {
+            setShowPreview(false);
+            setSelectedStory(null);
+          }}
+          onPurchase={handlePurchase}
+        />
+      )}
     </LinearGradient>
   );
 }
@@ -335,6 +436,44 @@ const getStyles = (theme: any) => StyleSheet.create({
   },
   categoryTextActive: {
     color: '#ffffff',
+  },
+  // Special category styles
+  specialCategoryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 10,
+    gap: 6,
+  },
+  specialCategoryText: {
+    fontSize: 14,
+    color: theme.secondaryText,
+    fontWeight: '500',
+  },
+  specialCategoryTextActive: {
+    color: '#ffffff',
+  },
+  // New category specific styles
+  newCategoryButton: {
+    backgroundColor: theme.card,
+    borderWidth: 1,
+    borderColor: theme.newBorderColor,
+  },
+  newCategoryButtonActive: {
+    backgroundColor: theme.newBackgroundColor,
+    borderColor: theme.newBorderColor,
+  },
+  // Wishlist category specific styles
+  wishlistCategoryButton: {
+    backgroundColor: theme.card,
+    borderWidth: 1,
+    borderColor: theme.favoriteBorderColor,
+  },
+  wishlistCategoryButtonActive: {
+    backgroundColor: theme.favoriteBackgroundColor,
+    borderColor: theme.favoriteBorderColor,
   },
   featuredSection: {
     paddingHorizontal: 20,
@@ -431,7 +570,8 @@ const getStyles = (theme: any) => StyleSheet.create({
   },
   storyImageContainer: {
     position: 'relative',
-    height: 120,
+    width: '100%',
+    aspectRatio: 1.2,
   },
   storyImage: {
     width: '100%',
@@ -449,7 +589,7 @@ const getStyles = (theme: any) => StyleSheet.create({
     position: 'absolute',
     top: 8,
     left: 8,
-    backgroundColor: '#ef4444',
+    backgroundColor: theme.newBackgroundColor,
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 4,

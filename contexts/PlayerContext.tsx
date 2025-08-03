@@ -9,6 +9,13 @@ export interface Story {
   duration: string;
   cover: string;
   color: string[];
+  price?: number;
+  isOwned?: boolean;
+  isFavorited?: boolean;
+  previewUrl?: string;
+  rating?: number;
+  category?: string;
+  isNew?: boolean;
 }
 
 interface PlayerContextType {
