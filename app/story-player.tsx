@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { 
   Play, 
@@ -16,7 +17,7 @@ import {
 import { usePlayer } from '@/contexts/PlayerContext';
 import { useTheme } from '@/contexts/ThemeContext';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function StoryPlayerScreen() {
   const params = useLocalSearchParams();
@@ -25,6 +26,8 @@ export default function StoryPlayerScreen() {
   const [duration] = useState(480); // 8 minutes in seconds
   const [isFavorite, setIsFavorite] = useState(false);
   const [isNightMode, setIsNightMode] = useState(false);
+  const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
+  const backgroundPanAnimation = useRef(new Animated.Value(0)).current;
   const { minimizePlayer } = usePlayer();
   const { theme } = useTheme();
 
@@ -38,12 +41,14 @@ export default function StoryPlayerScreen() {
     React.useCallback(() => {
       return () => {
         // This cleanup function runs when the screen loses focus
+        stopBackgroundAnimation();
         minimizePlayer();
       };
     }, [minimizePlayer])
   );
 
   const handleMinimize = () => {
+    stopBackgroundAnimation();
     minimizePlayer();
     router.back();
   };
@@ -53,8 +58,61 @@ export default function StoryPlayerScreen() {
     title: params.title,
     description: params.description,
     duration: params.duration,
-    cover: params.cover,
+    cover: params.cover as string,
     color: params.color ? JSON.parse(params.color as string) : ['#667eea', '#764ba2'],
+  };
+
+  // Initialize background animation for wide images
+  useEffect(() => {
+    if (story?.cover && typeof story.cover === 'string' && story.cover.trim() !== '') {
+      Image.getSize(
+        story.cover, 
+        (imageWidth, imageHeight) => {
+          setImageSize({ width: imageWidth, height: imageHeight });
+          
+          // Simple logic: if image width > screen width, animate
+          if (imageWidth > width) {
+            setTimeout(() => startBackgroundAnimation(imageWidth), 100);
+          }
+        },
+        (error) => {
+          console.log('Error getting image size:', error);
+          // Set default dimensions if image fails to load
+          setImageSize({ width: width, height: width * 1.5 });
+        }
+      );
+    } else {
+      // Set default dimensions if no valid cover URL
+      setImageSize({ width: width, height: width * 1.5 });
+    }
+  }, [story?.cover]);
+
+  const startBackgroundAnimation = (imageWidth?: number) => {
+    const actualImageWidth = imageWidth || imageSize.width;
+    const panDistance = actualImageWidth > width ? (actualImageWidth - width) / 2 : 0;
+    
+    if (panDistance > 0) {
+      const animation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(backgroundPanAnimation, {
+            toValue: -panDistance * 2,
+            duration: 30000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(backgroundPanAnimation, {
+            toValue: 0,
+            duration: 30000,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      animation.start();
+    }
+  };
+
+  const stopBackgroundAnimation = () => {
+    backgroundPanAnimation.stopAnimation();
+    backgroundPanAnimation.setValue(0);
   };
 
   useEffect(() => {
@@ -93,65 +151,91 @@ export default function StoryPlayerScreen() {
   };
 
   return (
-    <LinearGradient
-      colors={isNightMode ? ['#1f2937', '#111827'] : story.color}
-      style={styles.card}
-    >
+    <View style={styles.container}>
+      {/* Full-screen background image with pan animation */}
+      <Animated.Image 
+        source={{ uri: typeof story.cover === 'string' ? story.cover : story.cover?.[0] || '' }} 
+        style={[
+          styles.backgroundImage,
+          imageSize.width > width && {
+            width: imageSize.width,
+          },
+          {
+            transform: [{ translateX: backgroundPanAnimation }]
+          }
+        ]} 
+      />
+      
+      {/* Progressive overlay gradients */}
+      <LinearGradient
+        colors={isNightMode ? [
+          'rgba(0,0,0,0.75)',
+          'rgba(0,0,0,0.8)',
+          'rgba(0,0,0,0.85)',
+          'rgba(0,0,0,0.9)',
+          'rgba(0,0,0,0.95)',
+          'rgba(0,0,0,1)'
+        ] : [
+          'transparent',
+          'rgba(0,0,0,0.1)',
+          'rgba(0,0,0,0.3)',
+          'rgba(0,0,0,0.6)',
+          'rgba(0,0,0,0.8)',
+          'rgba(0,0,0,0.95)'
+        ]}
+        locations={[0, 0.2, 0.4, 0.6, 0.8, 1]}
+        style={styles.backgroundOverlay}
+      />
+
       <View style={styles.cardHandle} />
       
+      {/* Header with glassmorphism */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={handleMinimize}
-        >
-          <ArrowLeft size={24} color="#ffffff" />
-        </TouchableOpacity>
-        <View style={styles.headerActions}>
+        <BlurView intensity={30} tint={isNightMode ? "systemMaterialDark" : "dark"} style={styles.backButton}>
           <TouchableOpacity 
-            style={styles.headerButton}
-            onPress={() => setIsNightMode(!isNightMode)}
+            style={styles.backButtonTouch}
+            onPress={handleMinimize}
           >
-            <Moon 
-              size={20} 
-              color="#ffffff" 
-              fill={isNightMode ? "#ffffff" : "transparent"}
-            />
+            <ArrowLeft size={24} color="#ffffff" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton}>
-            <Share size={20} color="#ffffff" />
-          </TouchableOpacity>
+        </BlurView>
+        
+        <View style={styles.headerActions}>
+          <BlurView intensity={30} tint={isNightMode ? "systemMaterialDark" : "dark"} style={styles.headerButton}>
+            <TouchableOpacity 
+              style={styles.headerButtonTouch}
+              onPress={() => setIsNightMode(!isNightMode)}
+            >
+              <Moon 
+                size={20} 
+                color="#ffffff" 
+                fill={isNightMode ? "#ffffff" : "transparent"}
+              />
+            </TouchableOpacity>
+          </BlurView>
+          <BlurView intensity={30} tint={isNightMode ? "systemMaterialDark" : "dark"} style={styles.headerButton}>
+            <TouchableOpacity style={styles.headerButtonTouch}>
+              <Share size={20} color="#ffffff" />
+            </TouchableOpacity>
+          </BlurView>
         </View>
       </View>
 
-      <View style={styles.coverContainer}>
-        <View style={styles.coverWrapper}>
-          <Image 
-            source={{ uri: typeof story.cover === 'string' ? story.cover : story.cover?.[0] || '' }} 
-            style={styles.coverImage} 
-          />
-          <LinearGradient 
-            colors={isNightMode 
-              ? ['transparent', 'rgba(0,0,0,0.9)'] 
-              : ['transparent', 'rgba(0,0,0,0.8)']
-            }
-            style={styles.coverOverlay}
-          >
-            <View style={styles.storyInfo}>
-              <Text style={styles.storyTitle}>{story.title}</Text>
-              <Text style={styles.storyDescription}>{story.description}</Text>
-              <View style={styles.storyMeta}>
-                <Star size={14} color="#fbbf24" />
-                <Text style={styles.metaText}>4.8 • Bedtime Story</Text>
-              </View>
-            </View>
-          </LinearGradient>
+      {/* Spacer to push content to bottom */}
+      <View style={styles.flexSpacer} />
+
+      {/* Story information section above player */}
+      <View style={styles.storyInfoSection}>
+        <Text style={styles.storyTitle}>{story.title}</Text>
+        <View style={styles.storyMeta}>
+          <Star size={16} color="#fbbf24" />
+          <Text style={styles.metaText}>4.8 • Bedtime Story</Text>
         </View>
+        <Text style={styles.storyDescription}>{story.description}</Text>
       </View>
 
-      <View style={[
-        styles.playerContainer,
-        { backgroundColor: isNightMode ? '#23232a' : 'rgba(255, 255, 255, 0.1)' }
-      ]}>
+      {/* Player controls with glassmorphism */}
+      <BlurView intensity={isNightMode ? 50 : 40} tint="dark" style={styles.playerContainer}>
         <View style={styles.progressSection}>
           <View style={styles.progressBar}>
             <View 
@@ -165,45 +249,55 @@ export default function StoryPlayerScreen() {
         </View>
 
         <View style={styles.controlsContainer}>
-          <TouchableOpacity 
-            style={styles.controlButton}
-            onPress={() => setIsFavorite(!isFavorite)}
-          >
-            <Heart 
-              size={24} 
-              color={isFavorite ? "#ef4444" : "#ffffff"} 
-              fill={isFavorite ? "#ef4444" : "transparent"}
-            />
-          </TouchableOpacity>
+          <BlurView intensity={isNightMode ? 30 : 20} tint="dark" style={styles.controlButton}>
+            <TouchableOpacity 
+              style={styles.controlButtonTouch}
+              onPress={() => setIsFavorite(!isFavorite)}
+            >
+              <Heart 
+                size={24} 
+                color={isFavorite ? "#ef4444" : "#ffffff"} 
+                fill={isFavorite ? "#ef4444" : "transparent"}
+              />
+            </TouchableOpacity>
+          </BlurView>
 
-          <TouchableOpacity 
-            style={styles.controlButton}
-            onPress={() => handleSeek('backward')}
-          >
-            <SkipBack size={28} color="#ffffff" />
-          </TouchableOpacity>
+          <BlurView intensity={isNightMode ? 30 : 20} tint={isNightMode ? "systemMaterialDark" : "dark"} style={styles.controlButton}>
+            <TouchableOpacity 
+              style={styles.controlButtonTouch}
+              onPress={() => handleSeek('backward')}
+            >
+              <SkipBack size={28} color="#ffffff" />
+            </TouchableOpacity>
+          </BlurView>
 
-          <TouchableOpacity 
-            style={styles.playButton}
-            onPress={() => setIsPlaying(!isPlaying)}
-          >
-            {isPlaying ? (
-              <Pause size={32} color="#ffffff" />
-            ) : (
-              <Play size={32} color="#ffffff" />
-            )}
-          </TouchableOpacity>
+          <BlurView intensity={isNightMode ? 40 : 30} tint={isNightMode ? "systemMaterialDark" : "dark"} style={styles.playButton}>
+            <TouchableOpacity 
+              style={styles.playButtonTouch}
+              onPress={() => setIsPlaying(!isPlaying)}
+            >
+              {isPlaying ? (
+                <Pause size={32} color="#ffffff" />
+              ) : (
+                <Play size={32} color="#ffffff" />
+              )}
+            </TouchableOpacity>
+          </BlurView>
 
-          <TouchableOpacity 
-            style={styles.controlButton}
-            onPress={() => handleSeek('forward')}
-          >
-            <SkipForward size={28} color="#ffffff" />
-          </TouchableOpacity>
+          <BlurView intensity={isNightMode ? 30 : 20} tint={isNightMode ? "systemMaterialDark" : "dark"} style={styles.controlButton}>
+            <TouchableOpacity 
+              style={styles.controlButtonTouch}
+              onPress={() => handleSeek('forward')}
+            >
+              <SkipForward size={28} color="#ffffff" />
+            </TouchableOpacity>
+          </BlurView>
 
-          <TouchableOpacity style={styles.controlButton}>
-            <Volume2 size={24} color="#ffffff" />
-          </TouchableOpacity>
+          <BlurView intensity={isNightMode ? 30 : 20} tint={isNightMode ? "systemMaterialDark" : "dark"} style={styles.controlButton}>
+            <TouchableOpacity style={styles.controlButtonTouch}>
+              <Volume2 size={24} color="#ffffff" />
+            </TouchableOpacity>
+          </BlurView>
         </View>
 
         <View style={styles.bottomInfo}>
@@ -215,14 +309,29 @@ export default function StoryPlayerScreen() {
             <Text style={styles.sleepLabel}>Sleep in 30 min</Text>
           </View>
         </View>
-      </View>
-    </LinearGradient>
+      </BlurView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  container: {
     flex: 1,
+  },
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: width,
+    height: height,
+    resizeMode: 'cover',
+  },
+  backgroundOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: width,
+    height: height,
   },
   cardHandle: {
     width: 40,
@@ -245,7 +354,13 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  backButtonTouch: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -257,74 +372,62 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  coverContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-    paddingVertical: 20,
-  },
-  coverWrapper: {
-    width: width * 0.8,
-    height: width * 0.8,
-    borderRadius: 20,
     overflow: 'hidden',
-    elevation: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
-  coverImage: {
+  headerButtonTouch: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
-  },
-  coverOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 20,
-  },
-  storyInfo: {
+    justifyContent: 'center',
     alignItems: 'center',
   },
+  flexSpacer: {
+    flex: 1,
+  },
+  storyInfoSection: {
+    paddingHorizontal: 30,
+    paddingVertical: 25,
+    marginBottom: 5,
+  },
   storyTitle: {
-    fontSize: 20,
+    fontSize: 32,
     fontWeight: 'bold',
     color: '#ffffff',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  storyDescription: {
-    fontSize: 14,
-    color: '#ffffff',
-    textAlign: 'center',
-    opacity: 0.9,
-    marginBottom: 8,
+    textAlign: 'left',
+    marginBottom: 15,
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   storyMeta: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+    marginBottom: 20,
   },
   metaText: {
-    fontSize: 12,
-    color: '#ffffff',
-    opacity: 0.8,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    fontWeight: '500',
+  },
+  storyDescription: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.9)',
+    textAlign: 'left',
+    lineHeight: 24,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   playerContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     paddingHorizontal: 30,
     paddingTop: 30,
     paddingBottom: 40,
+    borderWidth: 0,
+    overflow: 'hidden',
   },
   progressSection: {
     marginBottom: 30,
@@ -359,7 +462,14 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  controlButtonTouch: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -367,7 +477,14 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  playButtonTouch: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -90,7 +90,7 @@ export default function LibraryScreen() {
   const { theme } = useTheme();
   const styles = getStyles(theme);
   const { openPlayer } = usePlayer();
-  const { ownedStories, toggleFavorite, isFavorited } = useLibrary();
+  const { purchasedStories, toggleFavorite, isFavorited } = useLibrary();
 
   // Custom component for special category buttons
   const renderCategoryButton = (category: string) => {

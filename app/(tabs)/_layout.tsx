@@ -2,6 +2,7 @@ import React from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Tabs } from 'expo-router';
 import { Moon as Home, User, Book, Mic } from 'lucide-react-native';
+import { BlurView } from 'expo-blur';
 
 export default function TabsLayout() {
   const { theme } = useTheme();
@@ -10,22 +11,34 @@ export default function TabsLayout() {
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: theme.tabColor,
+          position: 'absolute',
+          backgroundColor: 'transparent',
           borderTopWidth: 0,
-          elevation: 10,
-          shadowColor: theme.mode === 'dark' ? '#000' : '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
+          elevation: 0,
+          shadowOpacity: 0,
           height: 85,
           paddingBottom: 20,
           paddingTop: 10,
         },
+        tabBarBackground: () => (
+          <BlurView 
+            intensity={theme.mode === 'dark' ? 40 : 20} 
+            tint={theme.mode === 'dark' ? 'systemMaterialDark' : 'systemMaterialLight'} 
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              bottom: 0,
+              right: 0,
+              backgroundColor: theme.mode === 'dark' ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.6)',
+            }}
+          />
+        ),
         tabBarActiveTintColor: theme.accent,
         tabBarInactiveTintColor: theme.secondaryText,
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '600',
+          fontWeight: '500',
           marginTop: 5,
         },
       })}

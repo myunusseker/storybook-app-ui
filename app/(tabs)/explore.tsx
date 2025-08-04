@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, TextInput, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Play, Heart, Clock, Star, Search, Filter, Bookmark, Sparkles } from 'lucide-react-native';
 import { router } from 'expo-router';
@@ -59,7 +59,7 @@ const stories = [
     duration: '9 min',
     rating: 4.8,
     category: 'Fantasy',
-    cover: 'https://images.pexels.com/photos/1323712/pexels-photo-1323712.jpeg?auto=compress&cs=tinysrgb&w=400',
+    cover: 'https://firebasestorage.googleapis.com/v0/b/ebook-app-12893.firebasestorage.app/o/books%2Fplaceholder_cover.png?alt=media&token=c0ab0a09-35e0-4696-ac2f-7ab5dfef2b57',
     color: ['#fa709a', '#fee140'],
     isNew: true,
     price: 2.49,
@@ -75,7 +75,7 @@ export default function HomeScreen() {
   const { theme } = useTheme();
   const styles = getStyles(theme);
   const { openPlayer } = usePlayer();
-  const { toggleWishlist, isWishlisted, isOwned, addToLibrary } = useLibrary();
+  const { toggleWishlist, isWishlisted, isPurchased, addToLibrary } = useLibrary();
 
   const handleToggleWishlist = (storyId: string) => {
     toggleWishlist(storyId);
@@ -96,25 +96,9 @@ export default function HomeScreen() {
       previewUrl: story.previewUrl,
     };
 
-    if (isOwned(story.id)) {
-      // If owned, play the full story
-      openPlayer(storyData);
-      router.push({
-        pathname: '/story-player',
-        params: { 
-          id: story.id,
-          title: story.title,
-          description: story.description,
-          duration: story.duration,
-          cover: story.cover,
-          color: JSON.stringify(story.color),
-        }
-      });
-    } else {
-      // If not owned, show preview
-      setSelectedStory(storyData);
-      setShowPreview(true);
-    }
+    // Always show preview modal, regardless of ownership status
+    setSelectedStory(storyData);
+    setShowPreview(true);
   };
 
   // Custom component for special category buttons
@@ -192,6 +176,7 @@ export default function HomeScreen() {
   const handlePurchase = (story: Story) => {
     console.log(`Purchased: ${story.title}`);
     addToLibrary(story.id);
+    Alert.alert('(Placeholder)\nPurchase Successful', `You have purchased "${story.title}" for $${story.price}.`);
     // Here you would typically integrate with a payment system
   };
 
@@ -297,24 +282,16 @@ export default function HomeScreen() {
                       <Text style={styles.newBadgeText}>New</Text>
                     </View>
                   )}
-                  <TouchableOpacity
-                    style={styles.favoriteButton}
-                    onPress={() => handleToggleWishlist(story.id)}
-                  >
-                    {isOwned(story.id) ? (
-                      <Heart
-                        size={16}
-                        color="#ccd3dbff"
-                        fill="transparent"
-                      />
-                    ) : (
-                      <Bookmark
-                        size={16}
-                        color={isWishlisted(story.id) ? theme.favoriteBorderColor : "#ffffff"}
-                        fill={isWishlisted(story.id) ? theme.favoriteBorderColor : "transparent"}
-                      />
-                    )}
-                  </TouchableOpacity>
+                  {isPurchased(story.id) && (
+                    <View style={styles.purchasedBadge}>
+                      <Text style={styles.purchasedBadgeText}>Purchased</Text>
+                    </View>
+                  )}
+                  {!isPurchased(story.id) && isWishlisted(story.id) && (
+                    <View style={styles.wishlistBadge}>
+                      <Text style={styles.wishlistBadgeText}>Wishlist</Text>
+                    </View>
+                  )}
                 </View>
                 <View style={styles.storyInfo}>
                   <Text style={styles.storyTitle}>{story.title}</Text>
@@ -344,7 +321,10 @@ export default function HomeScreen() {
           visible={showPreview}
           onClose={() => {
             setShowPreview(false);
-            setSelectedStory(null);
+            // Delay clearing selectedStory to allow modal close animation to complete
+            setTimeout(() => {
+              setSelectedStory(null);
+            }, 300); // Match React Native's default modal animation duration
           }}
           onPurchase={handlePurchase}
         />
@@ -595,6 +575,34 @@ const getStyles = (theme: any) => StyleSheet.create({
     paddingVertical: 4,
   },
   newBadgeText: {
+    fontSize: 10,
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  purchasedBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: theme.purchasedBackgroundColor,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  purchasedBadgeText: {
+    fontSize: 10,
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  wishlistBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: theme.favoriteBackgroundColor,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  wishlistBadgeText: {
     fontSize: 10,
     color: '#ffffff',
     fontWeight: 'bold',

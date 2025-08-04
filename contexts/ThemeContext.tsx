@@ -19,6 +19,7 @@ const lightTheme = {
   newBorderColor: '#3b82f6',
   favoriteBackgroundColor: '#ff586cff',
   favoriteBorderColor: '#f43f5e',
+  purchasedBackgroundColor: '#10b981',
 };
 
 const darkTheme = {
@@ -38,6 +39,7 @@ const darkTheme = {
   newBorderColor: '#3b82f6',
   favoriteBackgroundColor: '#ff586cff',
   favoriteBorderColor: '#f43f5e',
+  purchasedBackgroundColor: '#10b981',
 };
 
 
